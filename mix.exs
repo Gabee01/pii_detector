@@ -1,4 +1,4 @@
-defmodule PiiDetector.MixProject do
+defmodule PIIDetector.MixProject do
   use Mix.Project
 
   def project do
@@ -26,7 +26,7 @@ defmodule PiiDetector.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {PiiDetector.Application, []},
+      mod: {PIIDetector.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end

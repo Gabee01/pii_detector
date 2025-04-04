@@ -5,7 +5,7 @@ defmodule PIIDetector.Platform.Slack.Bot do
   use Slack.Bot
   require Logger
 
-  alias PiiDetector.Workers.Event.SlackMessageWorker
+  alias PIIDetector.Workers.Event.SlackMessageWorker
 
   @impl true
   def handle_event("message", %{"subtype" => _}, _bot) do

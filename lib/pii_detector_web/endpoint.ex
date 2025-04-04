@@ -1,4 +1,4 @@
-defmodule PiiDetectorWeb.Endpoint do
+defmodule PIIDetectorWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :pii_detector
 
   # The session will be stored in the cookie and signed,
@@ -23,7 +23,7 @@ defmodule PiiDetectorWeb.Endpoint do
     at: "/",
     from: :pii_detector,
     gzip: false,
-    only: PiiDetectorWeb.static_paths()
+    only: PIIDetectorWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
@@ -45,5 +45,5 @@ defmodule PiiDetectorWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug PiiDetectorWeb.Router
+  plug PIIDetectorWeb.Router
 end

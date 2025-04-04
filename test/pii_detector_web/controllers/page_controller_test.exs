@@ -1,5 +1,5 @@
-defmodule PiiDetectorWeb.PageControllerTest do
-  use PiiDetectorWeb.ConnCase
+defmodule PIIDetectorWeb.PageControllerTest do
+  use PIIDetectorWeb.ConnCase
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")

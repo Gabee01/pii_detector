@@ -1,5 +1,5 @@
-defmodule PiiDetectorWeb.API.WebhookController do
-  use PiiDetectorWeb, :controller
+defmodule PIIDetectorWeb.API.WebhookController do
+  use PIIDetectorWeb, :controller
 
   # def slack(conn, _params) do
   #   # Will implement in next task

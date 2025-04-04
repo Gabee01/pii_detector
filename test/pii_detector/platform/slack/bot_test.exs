@@ -1,21 +1,13 @@
 defmodule PIIDetector.Platform.Slack.BotTest do
-  use PiiDetector.DataCase, async: false
+  use PIIDetector.DataCase, async: false
   import Mox
 
-  # Use the correct mock names that match our configuration
-  alias PIIDetector.Detector.PIIDetectorMock
-  alias PIIDetector.Platform.Slack.{APIMock, Bot}
+  alias PIIDetector.Platform.Slack.Bot
 
   # Make sure mocks expectations are verified when the test exits
   setup :verify_on_exit!
 
   setup do
-    # Set the mock detector for tests
-    Application.put_env(:pii_detector, :pii_detector_module, PIIDetectorMock)
-
-    # Configure the Slack API mock for tests
-    Application.put_env(:pii_detector, :slack_api_module, APIMock)
-
     # Default bot structure for tests
     bot = %{token: "xoxb-test-token", team_id: "T12345", user_id: "U12345"}
 
@@ -26,12 +18,6 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "ts" => "1234567890.123456",
       "text" => "This message contains test-pii"
     }
-
-    on_exit(fn ->
-      # Clean up the environment
-      Application.delete_env(:pii_detector, :pii_detector_module)
-      Application.delete_env(:pii_detector, :slack_api_module)
-    end)
 
     %{bot: bot, message: message}
   end

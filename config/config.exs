@@ -8,18 +8,21 @@
 import Config
 
 config :pii_detector,
-  ecto_repos: [PiiDetector.Repo],
+  ecto_repos: [PIIDetector.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# Configure AI service
+config :pii_detector, :ai_service, PIIDetector.AI.ClaudeService
+
 # Configures the endpoint
-config :pii_detector, PiiDetectorWeb.Endpoint,
+config :pii_detector, PIIDetectorWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: PiiDetectorWeb.ErrorHTML, json: PiiDetectorWeb.ErrorJSON],
+    formats: [html: PIIDetectorWeb.ErrorHTML, json: PIIDetectorWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: PiiDetector.PubSub,
+  pubsub_server: PIIDetector.PubSub,
   live_view: [signing_salt: "Zwpgr9nU"]
 
 # Configure esbuild (the version is required)
@@ -75,7 +78,7 @@ import_config "#{config_env()}.exs"
 # Configure Oban for job processing
 config :pii_detector, Oban,
   engine: Oban.Engines.Basic,
-  repo: PiiDetector.Repo,
+  repo: PIIDetector.Repo,
   plugins: [
     # Prune completed jobs after 7 days
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},

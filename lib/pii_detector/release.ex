@@ -1,4 +1,4 @@
-defmodule PiiDetector.Release do
+defmodule PIIDetector.Release do
   @moduledoc """
   Used for executing DB release tasks when run in production without Mix
   installed.
