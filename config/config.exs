@@ -47,7 +47,15 @@ config :tailwind,
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [
+    :request_id,
+    :event_type,
+    :user_id,
+    :channel_id,
+    :error,
+    :reason,
+    :categories
+  ]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
@@ -61,8 +69,10 @@ config :pii_detector, Oban,
   engine: Oban.Engines.Basic,
   repo: PiiDetector.Repo,
   plugins: [
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},  # Prune completed jobs after 7 days
-    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}  # Rescue orphaned jobs after 30 minutes
+    # Prune completed jobs after 7 days
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    # Rescue orphaned jobs after 30 minutes
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
   ],
   queues: [
     default: 10,

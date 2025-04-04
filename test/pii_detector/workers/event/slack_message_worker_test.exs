@@ -70,7 +70,9 @@ defmodule PiiDetector.Workers.Event.SlackMessageWorkerTest do
 
       # Run the job
       job = %Oban.Job{args: args}
-      assert {:error, "Failed to delete message: :cant_delete_message"} = SlackMessageWorker.perform(job)
+
+      assert {:error, "Failed to delete message: :cant_delete_message"} =
+               SlackMessageWorker.perform(job)
     end
   end
 end

@@ -4,7 +4,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
 
   # Use the correct mock names that match our configuration
   alias PIIDetector.Detector.PIIDetectorMock
-  alias PIIDetector.Platform.Slack.{Bot, APIMock}
+  alias PIIDetector.Platform.Slack.{APIMock, Bot}
 
   # Make sure mocks expectations are verified when the test exits
   setup :verify_on_exit!

@@ -80,6 +80,7 @@ defmodule PiiDetector.Workers.Event.SlackMessageWorker do
               channel_id: channel,
               reason: reason
             )
+
             {:error, "Failed to delete message: #{inspect(reason)}"}
         end
 
@@ -89,6 +90,7 @@ defmodule PiiDetector.Workers.Event.SlackMessageWorker do
           user_id: user,
           channel_id: channel
         )
+
         :ok
     end
   end
