@@ -97,3 +97,13 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 end
+
+# Configure Slack Bot
+config :pii_detector, PIIDetector.Platform.Slack.Bot,
+  app_token: System.get_env("SLACK_APP_TOKEN"),
+  bot_token: System.get_env("SLACK_BOT_TOKEN"),
+  admin_token: System.get_env("SLACK_ADMIN_TOKEN"),
+  bot: PIIDetector.Platform.Slack.Bot
+
+# Update Fly.io secrets
+# fly secrets set SLACK_APP_TOKEN=xapp-your-token SLACK_BOT_TOKEN=xoxb-your-token SLACK_ADMIN_TOKEN=xoxp-your-admin-token

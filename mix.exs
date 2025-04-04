@@ -69,9 +69,13 @@ defmodule PiiDetector.MixProject do
       # HTTP client
       {:req, "~> 0.4"},
 
+      # Slack client library
+      {:slack_elixir, "~> 1.2.0"},
+
       # Testing and quality
       {:credo, "~> 1.7", only: [:dev, :test]},
-      {:excoveralls, "~> 0.18", only: :test}
+      {:excoveralls, "~> 0.18", only: :test},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

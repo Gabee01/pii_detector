@@ -23,10 +23,92 @@ This application monitors Slack channels and Notion databases for messages or do
 - `phoenix` - Web framework
 - `phoenix_live_view` - Real-time user interface updates
 - `req` - HTTP client for API integrations
+- `slack_elixir` - Slack integration via Socket Mode
 - `credo` - Static code analysis
 - `excoveralls` - Test coverage reporting
 - `bcrypt_elixir` - Password hashing
 - `hackney` - HTTP client used by Swoosh
+
+## Slack Integration
+
+The application integrates with Slack using Socket Mode to monitor messages in channels. When PII is detected:
+
+1. The bot attempts to delete the message with PII
+2. The bot sends a direct message to the user explaining why their message contained PII
+
+### Limitations
+
+- Without an admin token, the bot can only delete messages that it posts. 
+- With a properly configured admin token, the bot can delete messages from any user when PII is detected.
+- If admin token deletion fails, the bot will fall back to notifying users via DM about the PII in their message.
+
+### Configuration
+
+The Slack integration requires the following environment variables:
+- `SLACK_APP_TOKEN` - Socket Mode app-level token (starts with `xapp-`)
+- `SLACK_BOT_TOKEN` - Bot user token (starts with `xoxb-`)
+- `SLACK_ADMIN_TOKEN` - Admin user token for message deletion (starts with `xoxp-`)
+
+set up a Slack app with the necessary permissions:
+
+1. Go to https://api.slack.com/apps
+2. Click "Create New App" > "From scratch"
+3. Name your app "PII Detector" and select your workspace
+4. Configure the following:
+
+### Bot Token Scopes
+Under "OAuth & Permissions" > "Scopes" > "Bot Token Scopes", add:
+- `chat:write` - For sending DMs and deleting messages
+- `channels:history` - For accessing messages in public channels
+- `channels:read` - For public channel information
+- `groups:history` - For accessing messages in private channels
+- `groups:read` - For private channel information
+- `im:read` - For direct message channel info
+- `im:write` - For starting DM conversations
+- `users:read` - For user information
+- `users:read.email` - For email-based user lookup
+
+### Enable Socket Mode
+1. Go to "Socket Mode" in the sidebar
+2. Enable Socket Mode
+3. Create an app-level token with the `connections:write` scope
+4. Save this app token (starts with `xapp-`)
+
+### Event Subscriptions
+Under "Event Subscriptions":
+1. Enable events
+2. Subscribe to bot events:
+   - `message.channels` - For messages in public channels
+   - `message.groups` - For messages in private channels
+   - `member_joined_channel` - When bot joins a channel
+   - `channel_left` - When bot leaves a channel
+
+### Admin Token Setup
+
+For the PII Detector to function properly with message deletion capabilities, it needs a Workspace Admin user token. This token allows the application to delete messages posted by any user when PII is detected.
+
+To set up the admin token:
+
+1. Create a Slack App or use your existing one
+2. Go to "OAuth & Permissions"
+3. Under "User Token Scopes" (not Bot Token Scopes), add:
+   - `chat:write` - For deleting messages
+   - `chat:write.customize` - For customizing notifications
+   - `chat:write.public` - For accessing public channels
+4. Install the app to your workspace while logged in as a Workspace Admin
+5. Copy the User OAuth Token (starts with `xoxp-`)
+6. Add this token to your environment variables as `SLACK_ADMIN_TOKEN`
+
+### Install App to Workspace
+1. Go to "Install App" and install it to your workspace
+2. Save the Bot User OAuth Token (starts with `xoxb-`) for your application
+
+#### Security Considerations
+
+The admin token has elevated permissions and should be handled with care:
+- Store it securely and never commit it to version control
+- Consider using a dedicated admin account rather than a personal account
+- Regularly audit and rotate the token if necessary
 
 ## Development Setup
 
