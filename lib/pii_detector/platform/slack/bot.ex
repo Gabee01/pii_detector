@@ -7,6 +7,11 @@ defmodule PIIDetector.Platform.Slack.Bot do
 
   alias PIIDetector.Detector.PIIDetector
 
+  # Add function to get the admin token directly from environment
+  defp admin_token do
+    System.get_env("SLACK_ADMIN_TOKEN")
+  end
+
   @impl true
   def handle_event("message", %{"subtype" => _}, _bot) do
     # Ignore message edits, deletions, etc.
@@ -36,7 +41,13 @@ defmodule PIIDetector.Platform.Slack.Bot do
     case PIIDetector.detect_pii(message_content) do
       {:pii_detected, true, categories} ->
         Logger.info("Detected PII in categories: #{inspect(categories)}")
-        delete_message(channel, ts, bot.token)
+        # Try with admin token first, fall back to bot token if admin token isn't set
+        case delete_message_with_admin(channel, ts) do
+          {:error, :admin_token_not_set} ->
+            # Fall back to bot token if admin token is not set
+            delete_message_with_bot(channel, ts, bot.token)
+          result -> result
+        end
         notify_user(user, message_content, bot.token)
 
       {:pii_detected, false, _} ->
@@ -64,8 +75,51 @@ defmodule PIIDetector.Platform.Slack.Bot do
     }
   end
 
-  # Delete a message containing PII
-  defp delete_message(channel, ts, token) do
+  # Delete a message using admin token
+  defp delete_message_with_admin(channel, ts) do
+    # Try to get admin token from different sources
+    # 1. Try from Application.get_env
+    # 2. Try from Process dictionary (set during init)
+    # 3. Use a fallback if neither is available
+    admin_token = admin_token()
+
+    if is_nil(admin_token) || admin_token == "" do
+      Logger.warning("Admin token not set. Falling back to bot token for message deletion.")
+      {:error, :admin_token_not_set}
+    else
+      case Slack.API.post("chat.delete", admin_token, %{
+        channel: channel,
+        ts: ts
+      }) do
+        {:ok, %{"ok" => true}} ->
+          Logger.info("Successfully deleted message containing PII using admin token in channel #{channel}")
+          :ok
+
+        {:ok, %{"ok" => false, "error" => "message_not_found"}} ->
+          Logger.warning("Unable to delete message: Message not found")
+          {:error, :message_not_found}
+
+        {:ok, %{"ok" => false, "error" => "cant_delete_message"}} ->
+          Logger.warning(
+            "Unable to delete message: Admin token lacks permission to delete messages. " <>
+            "Make sure the token has chat:write permissions and belongs to an admin user. " <>
+            "The user has been notified about the PII content."
+          )
+          {:error, :cant_delete_message}
+
+        {:ok, %{"ok" => false, "error" => error}} ->
+          Logger.error("Failed to delete message using admin token: #{error}")
+          {:error, error}
+
+        {:error, reason} ->
+          Logger.error("Failed to delete message using admin token: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
+  # Delete a message using bot token (fallback method)
+  defp delete_message_with_bot(channel, ts, token) do
     case Slack.API.post("chat.delete", token, %{
       channel: channel,
       ts: ts

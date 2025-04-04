@@ -24,7 +24,9 @@ defmodule PIIDetector.Platform.Slack.BotTest do
         "text" => "Hello world"
       }
 
-      result = Bot.handle_event("message", message, %{})
+      # Pass a bot map with token to simulate the bot context
+      bot = %{token: "xoxb-test-token", team_id: "T12345", user_id: "U12345"}
+      result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
