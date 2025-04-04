@@ -1,4 +1,4 @@
-defmodule PiiDetector.Repo.Migrations.AddObanJobsTable do
+defmodule PIIDetector.Repo.Migrations.AddObanJobsTable do
   use Ecto.Migration
 
   def up do

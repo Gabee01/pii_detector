@@ -1,12 +1,12 @@
-defmodule PiiDetectorWeb do
+defmodule PIIDetectorWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use PiiDetectorWeb, :controller
-      use PiiDetectorWeb, :html
+      use PIIDetectorWeb, :controller
+      use PIIDetectorWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -40,9 +40,9 @@ defmodule PiiDetectorWeb do
     quote do
       use Phoenix.Controller,
         formats: [:html, :json],
-        layouts: [html: PiiDetectorWeb.Layouts]
+        layouts: [html: PIIDetectorWeb.Layouts]
 
-      use Gettext, backend: PiiDetectorWeb.Gettext
+      use Gettext, backend: PIIDetectorWeb.Gettext
 
       import Plug.Conn
 
@@ -53,7 +53,7 @@ defmodule PiiDetectorWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {PiiDetectorWeb.Layouts, :app}
+        layout: {PIIDetectorWeb.Layouts, :app}
 
       unquote(html_helpers())
     end
@@ -83,12 +83,12 @@ defmodule PiiDetectorWeb do
   defp html_helpers do
     quote do
       # Translation
-      use Gettext, backend: PiiDetectorWeb.Gettext
+      use Gettext, backend: PIIDetectorWeb.Gettext
 
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components
-      import PiiDetectorWeb.CoreComponents
+      import PIIDetectorWeb.CoreComponents
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
@@ -101,9 +101,9 @@ defmodule PiiDetectorWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: PiiDetectorWeb.Endpoint,
-        router: PiiDetectorWeb.Router,
-        statics: PiiDetectorWeb.static_paths()
+        endpoint: PIIDetectorWeb.Endpoint,
+        router: PIIDetectorWeb.Router,
+        statics: PIIDetectorWeb.static_paths()
     end
   end
 

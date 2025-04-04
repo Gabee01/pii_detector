@@ -24,7 +24,7 @@ Currently, our Slack Bot directly processes and responds to messages. We need to
   ```elixir
   # config/config.exs
   config :pii_detector, Oban,
-    repo: PiiDetector.Repo,
+    repo: PIIDetector.Repo,
     plugins: [
       {Oban.Plugins.Pruner, max_age: 60*60*24}, # Prune completed jobs after 1 day
       {Oban.Plugins.Cron, crontab: []}
@@ -47,7 +47,7 @@ Currently, our Slack Bot directly processes and responds to messages. We need to
 - Create `lib/pii_detector/workers/slack_message_worker.ex`
 - Implement the worker to process Slack messages for PII detection
   ```elixir
-  defmodule PiiDetector.Workers.SlackMessageWorker do
+  defmodule PIIDetector.Workers.SlackMessageWorker do
     use Oban.Worker,
       queue: :slack,
       max_attempts: 3,
@@ -136,7 +136,7 @@ Currently, our Slack Bot directly processes and responds to messages. We need to
       content: message_content,
       bot_token: bot.token
     }
-    |> PiiDetector.Workers.SlackMessageWorker.new()
+    |> PIIDetector.Workers.SlackMessageWorker.new()
     |> Oban.insert()
     |> case do
       {:ok, _job} -> 
@@ -187,13 +187,13 @@ Currently, our Slack Bot directly processes and responds to messages. We need to
 - Create unit tests for the Slack message worker
 - Test job processing, PII detection, and error handling
   ```elixir
-  defmodule PiiDetector.Workers.SlackMessageWorkerTest do
-    use PiiDetector.DataCase
-    use Oban.Testing, repo: PiiDetector.Repo
+  defmodule PIIDetector.Workers.SlackMessageWorkerTest do
+    use PIIDetector.DataCase
+    use Oban.Testing, repo: PIIDetector.Repo
     
     import Mox
     
-    alias PiiDetector.Workers.SlackMessageWorker
+    alias PIIDetector.Workers.SlackMessageWorker
     
     setup :verify_on_exit!
     

@@ -1,4 +1,4 @@
-defmodule PiiDetector.Application do
+defmodule PIIDetector.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -8,13 +8,13 @@ defmodule PiiDetector.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      PiiDetectorWeb.Telemetry,
-      PiiDetector.Repo,
+      PIIDetectorWeb.Telemetry,
+      PIIDetector.Repo,
       {DNSCluster, query: Application.get_env(:pii_detector, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: PiiDetector.PubSub},
+      {Phoenix.PubSub, name: PIIDetector.PubSub},
       {Oban, Application.fetch_env!(:pii_detector, Oban)}
-      # Start a worker by calling: PiiDetector.Worker.start_link(arg)
-      # {PiiDetector.Worker, arg},
+      # Start a worker by calling: PIIDetector.Worker.start_link(arg)
+      # {PIIDetector.Worker, arg},
     ]
 
     # Only start the Slack bot if configured to do so (disabled in test)
@@ -30,11 +30,11 @@ defmodule PiiDetector.Application do
       end
 
     # Always add the endpoint last
-    children = children ++ [PiiDetectorWeb.Endpoint]
+    children = children ++ [PIIDetectorWeb.Endpoint]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: PiiDetector.Supervisor]
+    opts = [strategy: :one_for_one, name: PIIDetector.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -42,7 +42,7 @@ defmodule PiiDetector.Application do
   # whenever the application is updated.
   @impl true
   def config_change(changed, _new, removed) do
-    PiiDetectorWeb.Endpoint.config_change(changed, removed)
+    PIIDetectorWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 end

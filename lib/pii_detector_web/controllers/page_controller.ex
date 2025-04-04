@@ -1,5 +1,5 @@
-defmodule PiiDetectorWeb.PageController do
-  use PiiDetectorWeb, :controller
+defmodule PIIDetectorWeb.PageController do
+  use PIIDetectorWeb, :controller
 
   def home(conn, _params) do
     # The home page is often custom made,

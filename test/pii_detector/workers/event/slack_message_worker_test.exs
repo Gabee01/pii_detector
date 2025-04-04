@@ -1,8 +1,8 @@
-defmodule PiiDetector.Workers.Event.SlackMessageWorkerTest do
-  use PiiDetector.DataCase, async: true
+defmodule PIIDetector.Workers.Event.SlackMessageWorkerTest do
+  use PIIDetector.DataCase, async: true
   import Mox
 
-  alias PiiDetector.Workers.Event.SlackMessageWorker
+  alias PIIDetector.Workers.Event.SlackMessageWorker
 
   # Make sure our mocks verify expectations correctly
   setup :verify_on_exit!

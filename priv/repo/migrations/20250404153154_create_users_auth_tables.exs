@@ -1,4 +1,4 @@
-defmodule PiiDetector.Repo.Migrations.CreateUsersAuthTables do
+defmodule PIIDetector.Repo.Migrations.CreateUsersAuthTables do
   use Ecto.Migration
 
   def change do

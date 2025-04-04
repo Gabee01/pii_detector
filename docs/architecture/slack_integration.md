@@ -42,7 +42,7 @@ The API client handles all interactions with the Slack API:
 - Sending notifications to users
 - Managing fallback mechanisms when primary actions fail
 
-### 3. Slack Message Worker (`PiiDetector.Workers.Event.SlackMessageWorker`)
+### 3. Slack Message Worker (`PIIDetector.Workers.Event.SlackMessageWorker`)
 
 The worker processes Slack messages asynchronously:
 

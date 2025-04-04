@@ -1,5 +1,5 @@
 defmodule PIIDetector.Platform.Slack.APITest do
-  use PiiDetector.DataCase, async: false
+  use PIIDetector.DataCase, async: false
   import Mox
 
   alias PIIDetector.Platform.Slack.API
@@ -9,15 +9,11 @@ defmodule PIIDetector.Platform.Slack.APITest do
   setup :verify_on_exit!
 
   setup do
-    # Configure the underlying Slack API mock for tests
-    Application.put_env(:pii_detector, :slack_underlying_api, APIMock)
-
     # Start with empty admin token by default
     System.put_env("SLACK_ADMIN_TOKEN", "")
 
     on_exit(fn ->
       # Clean up the environment
-      Application.delete_env(:pii_detector, :slack_underlying_api)
       System.put_env("SLACK_ADMIN_TOKEN", "")
     end)
 

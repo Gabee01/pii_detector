@@ -18,7 +18,7 @@ Oban was added to the project with the following steps:
 
 3. Define the migration in `priv/repo/migrations/YYYYMMDDHHMMSS_add_oban_jobs_table.exs`:
    ```elixir
-   defmodule PiiDetector.Repo.Migrations.AddObanJobsTable do
+   defmodule PIIDetector.Repo.Migrations.AddObanJobsTable do
      use Ecto.Migration
 
      def up do
@@ -45,7 +45,7 @@ Oban is configured in `config/config.exs`:
 ```elixir
 config :pii_detector, Oban,
   engine: Oban.Engines.Basic,
-  repo: PiiDetector.Repo,
+  repo: PIIDetector.Repo,
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},  # Prune completed jobs after 7 days
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}  # Rescue orphaned jobs after 30 minutes
@@ -87,7 +87,7 @@ end
 Workers are defined as modules that use `Oban.Worker`. Here's an example of the Slack message worker:
 
 ```elixir
-defmodule PiiDetector.Workers.Event.SlackMessageWorker do
+defmodule PIIDetector.Workers.Event.SlackMessageWorker do
   use Oban.Worker, queue: :events, max_attempts: 3
 
   @impl Oban.Worker
@@ -140,7 +140,7 @@ Workers can be tested using `Oban.Testing`:
 
 ```elixir
 # In test helper or setup
-use Oban.Testing, repo: PiiDetector.Repo
+use Oban.Testing, repo: PIIDetector.Repo
 
 # In test
 test "processes message with no PII without issues", %{message_args: args} do

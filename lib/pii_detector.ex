@@ -1,6 +1,6 @@
-defmodule PiiDetector do
+defmodule PIIDetector do
   @moduledoc """
-  PiiDetector keeps the contexts that define your domain
+  PIIDetector keeps the contexts that define your domain
   and business logic.
 
   Contexts are also responsible for managing your data, regardless

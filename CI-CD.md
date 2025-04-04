@@ -76,7 +76,7 @@ The deployment process:
 
 Database migrations are handled automatically during deployment using:
 
-- `PiiDetector.Release.migrate/0` - Function defined in `lib/pii_detector/release.ex`
+- `PIIDetector.Release.migrate/0` - Function defined in `lib/pii_detector/release.ex`
 - `rel/overlays/bin/migrate` - Script that calls the migration function
 
 ## Monitoring and Troubleshooting

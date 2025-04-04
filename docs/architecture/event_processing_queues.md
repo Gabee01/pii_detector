@@ -52,7 +52,7 @@ Configuration in `config/config.exs`:
 ```elixir
 config :pii_detector, Oban,
   engine: Oban.Engines.Basic,
-  repo: PiiDetector.Repo,
+  repo: PIIDetector.Repo,
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},  # Prune completed jobs after 7 days
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}  # Rescue orphaned jobs after 30 minutes
@@ -68,7 +68,7 @@ config :pii_detector, Oban,
 
 Workers handle the actual processing of events:
 
-- **SlackMessageWorker** (`PiiDetector.Workers.Event.SlackMessageWorker`): 
+- **SlackMessageWorker** (`PIIDetector.Workers.Event.SlackMessageWorker`): 
   - Processes Slack messages 
   - Detects PII using the PII detection service
   - Takes appropriate actions (delete message, notify user)

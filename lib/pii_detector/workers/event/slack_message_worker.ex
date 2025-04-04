@@ -1,4 +1,4 @@
-defmodule PiiDetector.Workers.Event.SlackMessageWorker do
+defmodule PIIDetector.Workers.Event.SlackMessageWorker do
   @moduledoc """
   Oban worker for processing Slack messages.
   This worker handles the asynchronous processing of Slack messages for PII detection.

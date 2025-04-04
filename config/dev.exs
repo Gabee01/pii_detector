@@ -1,7 +1,7 @@
 import Config
 
 # Configure your database
-config :pii_detector, PiiDetector.Repo,
+config :pii_detector, PIIDetector.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
@@ -17,7 +17,7 @@ config :pii_detector, PiiDetector.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 # Binding to loopback ipv4 address prevents access from other machines.
-config :pii_detector, PiiDetectorWeb.Endpoint,
+config :pii_detector, PIIDetectorWeb.Endpoint,
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
@@ -53,7 +53,7 @@ config :pii_detector, PiiDetectorWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :pii_detector, PiiDetectorWeb.Endpoint,
+config :pii_detector, PIIDetectorWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",

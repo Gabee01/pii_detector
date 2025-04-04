@@ -8,7 +8,7 @@ config :bcrypt_elixir, :log_rounds, 1
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-config :pii_detector, PiiDetector.Repo,
+config :pii_detector, PIIDetector.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
@@ -18,7 +18,7 @@ config :pii_detector, PiiDetector.Repo,
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :pii_detector, PiiDetectorWeb.Endpoint,
+config :pii_detector, PIIDetectorWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "WHvn58li4F0bGZQfmHdWGf4PvWoMpN6Nmc+iaaAIcOt4lgbj0jKVxENxWZceHcUg",
   server: false
@@ -42,3 +42,6 @@ config :pii_detector, Oban, testing: :manual
 # Configure mocks for testing
 config :pii_detector, :pii_detector_module, PIIDetector.Detector.PIIDetectorMock
 config :pii_detector, :slack_api_module, PIIDetector.Platform.Slack.APIMock
+
+# Configure AI service for testing
+config :pii_detector, :ai_service, PIIDetector.AI.MockService
