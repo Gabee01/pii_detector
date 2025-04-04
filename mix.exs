@@ -75,6 +75,9 @@ defmodule PiiDetector.MixProject do
       # Slack client library
       {:slack_elixir, "~> 1.2.0"},
 
+      # Anthropic Claude client
+      {:anthropix, "~> 0.6.1"},
+
       # Testing and quality
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: :test},
