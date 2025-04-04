@@ -185,7 +185,10 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "chat.postMessage", token, params ->
         assert token == "xoxb-test-token"
         assert params.channel == "D123456"
-        assert params.text =~ "Your message was removed because it contained personal identifiable information"
+
+        assert params.text =~
+                 "Your message was removed because it contained personal identifiable information"
+
         {:ok, %{"ok" => true}}
     end)
 

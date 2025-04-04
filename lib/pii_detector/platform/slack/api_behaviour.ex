@@ -30,7 +30,8 @@ defmodule PIIDetector.Platform.Slack.APIBehaviour do
   - {:ok, :deleted} on success
   - {:error, reason} on failure
   """
-  @callback delete_message(String.t(), String.t(), String.t()) :: {:ok, :deleted} | {:error, any()}
+  @callback delete_message(String.t(), String.t(), String.t()) ::
+              {:ok, :deleted} | {:error, any()}
 
   @doc """
   Sends a notification to a user about a deleted message.
