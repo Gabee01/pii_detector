@@ -1,128 +1,40 @@
-# PII Detection Service Implementation
+# PII Detection Service Implementation with Anthropix
 
 ## Overview
-We need to implement a robust PII detection service using Anthropic's Claude API. The current implementation is a placeholder that simply checks for "test-pii" text. We'll replace this with intelligent PII detection powered by Claude, focusing on both accuracy and performance.
+We need to implement a robust PII detection service using Anthropic's Claude API through the Anthropix library. The current implementation is a placeholder that simply checks for "test-pii" text. We'll replace this with intelligent PII detection powered by Claude, focusing on both accuracy and performance.
 
 ## Goals
-- Integrate with Claude API (configurable between models)
+- Integrate with Claude API (configurable between Haiku/Sonnet) using Anthropix
 - Provide robust PII detection across various content types
 - Maintain the existing behavior contract (API doesn't change)
-- Support configurable sensitivity levels
 - Implement comprehensive testing
 
 ## Implementation Steps
 
-### 1. Create Claude API Client (1 hour)
-- Create module `lib/pii_detector/ai/claude_client.ex` to handle Claude API interactions
-- Implement model selection based on environment (Haiku for dev, Sonnet for prod)
+### 1. Add Anthropix to Dependencies (15 min)
+- Add Anthropix to `mix.exs` dependencies
+  ```elixir
+  {:anthropix, "~> 0.6.1"}
+  ```
+- Update dependencies with `mix deps.get`
 - Configure API key handling through environment variables
-- Add proper error handling and retry logic
-- Example implementation:
 
-```elixir
-defmodule PiiDetector.AI.ClaudeClient do
-  @moduledoc """
-  Client for interacting with Claude AI API.
-  """
-  
-  require Logger
-  
-  @default_model "claude-3-haiku-20240307"
-  @production_model "claude-3-sonnet-20240229"
-  
-  @doc """
-  Sends a prompt to Claude and returns the response.
-  """
-  def complete(prompt, opts \\ []) do
-    model = get_model_name(opts[:model])
-    api_key = get_api_key()
-    
-    Logger.debug("Sending request to Claude API", model: model)
-    
-    Req.post(
-      "https://api.anthropic.com/v1/messages",
-      headers: [
-        {"x-api-key", api_key},
-        {"anthropic-version", "2023-06-01"},
-        {"content-type", "application/json"}
-      ],
-      json: %{
-        model: model,
-        max_tokens: opts[:max_tokens] || 1024,
-        temperature: opts[:temperature] || 0,
-        system: opts[:system] || default_system_prompt(),
-        messages: [
-          %{
-            role: "user",
-            content: prompt
-          }
-        ]
-      },
-      receive_timeout: 15_000
-    )
-    |> handle_response()
-  end
-  
-  # Private helper functions
-  
-  defp get_model_name(nil) do
-    if Mix.env() == :prod do
-      @production_model
-    else
-      @default_model
-    end
-  end
-  
-  defp get_model_name(model), do: model
-  
-  defp get_api_key do
-    System.get_env("CLAUDE_API_KEY") ||
-      raise "CLAUDE_API_KEY environment variable is not set"
-  end
-  
-  defp default_system_prompt do
-    "You are a PII detection assistant. Your job is to analyze text for personally identifiable information."
-  end
-  
-  defp handle_response({:ok, response}) do
-    case response do
-      %Req.Response{status: 200, body: body} ->
-        text_response = body["content"]
-          |> Enum.filter(& &1["type"] == "text")
-          |> Enum.map(& &1["text"])
-          |> Enum.join("\n")
-        
-        {:ok, text_response}
-        
-      %Req.Response{status: status, body: body} ->
-        Logger.error("Claude API error", status: status, error: body["error"])
-        {:error, "Claude API error: #{body["error"]["message"]}"}
-    end
-  end
-  
-  defp handle_response({:error, error}) do
-    Logger.error("Claude API request failed", error: inspect(error))
-    {:error, "Claude API request failed: #{inspect(error)}"}
-  end
-end
-```
-
-### 2. Implement PII Detection Service (2 hours)
-- Implement the PII detection logic in `lib/pii_detector/detector/pii_detector.ex`
-- Design a prompt that can accurately identify different types of PII
-- Ensure the implementation follows the existing behavior contract
-- Handle multiple content types (text, attachments, files)
+### 2. Implement PII Detection Service (1.5 hours)
+- Update the existing PII detection logic in `lib/pii_detector/detector/pii_detector.ex`
+- Create a well-designed prompt for accurate PII identification
+- Leverage Anthropix's built-in features for API interactions
 - Example implementation:
 
 ```elixir
 defmodule PIIDetector.Detector.PIIDetector do
   @moduledoc """
-  Detects PII in content using Claude API.
+  Detects PII in content using Claude API via Anthropix.
   """
   @behaviour PIIDetector.Detector.PIIDetectorBehaviour
 
   require Logger
-  alias PiiDetector.AI.ClaudeClient
+
+  # Model names will be fetched from config or environment variables
 
   @doc """
   Checks if the given content contains PII.
@@ -185,15 +97,63 @@ defmodule PIIDetector.Detector.PIIDetector do
   end
   
   defp analyze_with_claude(text) do
-    prompt = create_pii_detection_prompt(text)
-    system = pii_detection_system_prompt()
+    # Initialize Anthropix client with API key
+    client = Anthropix.init(get_api_key())
     
-    case ClaudeClient.complete(prompt, system: system) do
+    # Create the messages for Claude
+    messages = [
+      %{
+        role: "user",
+        content: create_pii_detection_prompt(text)
+      }
+    ]
+    
+    # Get the model name from config or environment variables
+    model = get_model_name()
+    
+    # Send request to Claude through Anthropix
+    case Anthropix.chat(client, [
+      model: model,
+      messages: messages,
+      system: pii_detection_system_prompt(),
+      temperature: 0,
+      max_tokens: 1024
+    ]) do
       {:ok, response} ->
         parse_claude_response(response)
         
       {:error, reason} ->
-        {:error, reason}
+        Logger.error("Claude API request failed", error: inspect(reason))
+        {:error, "Claude API request failed"}
+    end
+  end
+  
+  defp get_api_key do
+    System.get_env("CLAUDE_API_KEY") ||
+      raise "CLAUDE_API_KEY environment variable is not set"
+  end
+  
+  defp get_model_name do
+    if Mix.env() == :prod do
+      Application.get_env(:pii_detector, :claude)[:prod_model] ||
+        System.get_env("CLAUDE_PROD_MODEL") ||
+        "claude-3-sonnet-20240229" # Fallback default
+    else
+      Application.get_env(:pii_detector, :claude)[:dev_model] ||
+        System.get_env("CLAUDE_DEV_MODEL") ||
+        "claude-3-haiku-20240307" # Fallback default
+    end
+  end
+  
+  defp get_model_name do
+    if Mix.env() == :prod do
+      Application.get_env(:pii_detector, :claude)[:prod_model] ||
+        System.get_env("CLAUDE_PROD_MODEL") ||
+        "claude-3-sonnet-20240229" # Fallback default
+    else
+      Application.get_env(:pii_detector, :claude)[:dev_model] ||
+        System.get_env("CLAUDE_DEV_MODEL") ||
+        "claude-3-haiku-20240307" # Fallback default
     end
   end
   
@@ -240,7 +200,11 @@ defmodule PIIDetector.Detector.PIIDetector do
   end
   
   defp parse_claude_response(response) do
-    case Jason.decode(response) do
+    # Extract text from response
+    text = extract_text_from_response(response)
+    
+    # Parse JSON from text
+    case Jason.decode(text) do
       {:ok, decoded} ->
         {:ok, %{
           has_pii: decoded["has_pii"],
@@ -250,7 +214,7 @@ defmodule PIIDetector.Detector.PIIDetector do
         
       {:error, _} ->
         # Try extracting JSON from text
-        case extract_json_from_text(response) do
+        case extract_json_from_text(text) do
           {:ok, decoded} ->
             {:ok, %{
               has_pii: decoded["has_pii"],
@@ -259,10 +223,17 @@ defmodule PIIDetector.Detector.PIIDetector do
             }}
             
           {:error, reason} ->
-            Logger.error("Failed to parse Claude response", error: reason, response: response)
+            Logger.error("Failed to parse Claude response", error: reason, response: text)
             {:error, "Failed to parse Claude response"}
         end
     end
+  end
+  
+  defp extract_text_from_response(%{"content" => content}) do
+    content
+    |> Enum.filter(& &1["type"] == "text")
+    |> Enum.map(& &1["text"])
+    |> Enum.join("\n")
   end
   
   defp extract_json_from_text(text) do
@@ -278,7 +249,7 @@ defmodule PIIDetector.Detector.PIIDetector do
 end
 ```
 
-### 3. Add Configuration and Environment Variables (30 min)
+### 3. Add Configuration and Environment Variables (20 min)
 - Update `config/config.exs` to add Claude API configuration
 - Create `config/dev.exs` overrides to use Haiku in development
 - Create `config/prod.exs` configuration to use Sonnet in production
@@ -287,103 +258,23 @@ end
 ```elixir
 # In config/config.exs
 config :pii_detector, :claude,
-  model: "claude-3-haiku-20240307", # Default model
+  dev_model: "claude-3-haiku-20240307",
+  prod_model: "claude-3-sonnet-20240229",
   max_tokens: 1024,
   temperature: 0
 
-# In config/prod.exs
-config :pii_detector, :claude,
-  model: "claude-3-sonnet-20240229"
+# Alternatively, you can set environment variables:
+# CLAUDE_API_KEY=your_api_key
+# CLAUDE_DEV_MODEL=claude-3-haiku-20240307
+# CLAUDE_PROD_MODEL=claude-3-sonnet-20240229
+
+# Alternatively, you can set environment variables:
+# CLAUDE_API_KEY=your_api_key
+# CLAUDE_DEV_MODEL=claude-3-haiku-20240307
+# CLAUDE_PROD_MODEL=claude-3-sonnet-20240229
 ```
 
-### 4. Implement Caching for Efficiency (1 hour)
-- Create a caching layer to avoid duplicate API calls for the same content
-- Implement with ETS for in-memory caching
-- Add TTL (time-to-live) for cache entries
-- Update the detector to check cache before calling Claude
-
-```elixir
-defmodule PiiDetector.Detector.Cache do
-  @moduledoc """
-  Cache for PII detection results.
-  """
-  
-  use GenServer
-  require Logger
-  
-  @table_name :pii_detection_cache
-  @ttl :timer.minutes(60) # 1 hour TTL
-  
-  # Client API
-  
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-  
-  def get(key) do
-    case :ets.lookup(@table_name, key) do
-      [{^key, {result, expiry}}] ->
-        if :os.system_time(:millisecond) < expiry do
-          {:ok, result}
-        else
-          # Expired entry
-          :ets.delete(@table_name, key)
-          {:error, :expired}
-        end
-        
-      [] ->
-        {:error, :not_found}
-    end
-  end
-  
-  def put(key, result) do
-    expiry = :os.system_time(:millisecond) + @ttl
-    :ets.insert(@table_name, {key, {result, expiry}})
-    :ok
-  end
-  
-  # Server callbacks
-  
-  @impl true
-  def init(_opts) do
-    :ets.new(@table_name, [:set, :protected, :named_table])
-    schedule_cleanup()
-    {:ok, %{}}
-  end
-  
-  @impl true
-  def handle_info(:cleanup, state) do
-    now = :os.system_time(:millisecond)
-    
-    # Delete expired entries
-    :ets.select_delete(@table_name, [
-      {{:"$1", {:"$2", :"$3"}}, [{:<, :"$3", now}], [true]}
-    ])
-    
-    schedule_cleanup()
-    {:noreply, state}
-  end
-  
-  defp schedule_cleanup do
-    Process.send_after(self(), :cleanup, :timer.minutes(5))
-  end
-end
-```
-
-### 5. Add to Application Supervision Tree (15 min)
-- Update `lib/pii_detector/application.ex` to include the cache in the supervision tree
-- Ensure proper startup order and supervision strategy
-
-```elixir
-# In application.ex, update children list
-children = [
-  # ...existing children
-  PiiDetector.Detector.Cache
-]
-```
-
-### 6. Implement Unit Tests (1.5 hours)
-- Create tests for the Claude client in `test/pii_detector/ai/claude_client_test.exs`
+### 4. Implement Unit Tests (1 hour)
 - Update detector tests in `test/pii_detector/detector/pii_detector_test.exs`
 - Create mock responses and test cases covering various PII scenarios
 - Test error handling and edge cases
@@ -398,11 +289,33 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
   # Define mocks
   setup :verify_on_exit!
   
+  # Mock the Anthropix module
+  @anthropix_mock __MODULE__.AnthropixMock
+  
+  # Set up the mock module
+  setup do
+    # Define the mock module
+    defmock(@anthropix_mock, for: Anthropix)
+    
+    # Override the Anthropix module in the test environment
+    Application.put_env(:pii_detector, :anthropix_module, @anthropix_mock)
+    
+    :ok
+  end
+  
   describe "detect_pii/1" do
     test "returns false for content without PII" do
-      # Mock Claude API response
-      expect(MockClaudeClient, :complete, fn _prompt, _opts ->
-        {:ok, ~s({"has_pii": false, "categories": [], "explanation": "No PII found"})}
+      # Mock Anthropix.chat response
+      expect(@anthropix_mock, :init, fn _api_key -> %{api_key: "mock_key"} end)
+      expect(@anthropix_mock, :chat, fn _client, _opts ->
+        {:ok, %{
+          "content" => [
+            %{
+              "type" => "text",
+              "text" => ~s({"has_pii": false, "categories": [], "explanation": "No PII found"})
+            }
+          ]
+        }}
       end)
       
       content = %{text: "This is a normal message", files: [], attachments: []}
@@ -410,9 +323,17 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
     end
 
     test "detects PII in text" do
-      # Mock Claude API response
-      expect(MockClaudeClient, :complete, fn _prompt, _opts ->
-        {:ok, ~s({"has_pii": true, "categories": ["email", "phone"], "explanation": "Contains email and phone"})}
+      # Mock Anthropix.chat response
+      expect(@anthropix_mock, :init, fn _api_key -> %{api_key: "mock_key"} end)
+      expect(@anthropix_mock, :chat, fn _client, _opts ->
+        {:ok, %{
+          "content" => [
+            %{
+              "type" => "text",
+              "text" => ~s({"has_pii": true, "categories": ["email", "phone"], "explanation": "Contains email and phone"})
+            }
+          ]
+        }}
       end)
       
       content = %{text: "Contact me at john.doe@example.com or 555-123-4567", files: [], attachments: []}
@@ -424,13 +345,12 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
 end
 ```
 
-### 7. Document the Implementation (45 min)
+### 5. Document the Implementation (30 min)
 - Create `docs/pii_detection.md` with comprehensive documentation
 - Include sections on:
   - Detection approach and capabilities
   - Configuration options
   - Claude API usage and models
-  - Performance considerations
   - Prompt engineering details
   - Testing and mocking
 
@@ -454,18 +374,16 @@ end
 
 ## Key Considerations
 - **API Key Security**: Handle API keys through environment variables only
+- **Model Flexibility**: Configure Claude models through config or environment variables
 - **Cost/Performance Balance**: Use Haiku in development, Sonnet in production
-- **Caching**: Implement caching to reduce API calls for similar content
+- **Caching**: Leverage Anthropix's built-in prompt caching
 - **Error Handling**: Graceful degradation if Claude API is unavailable
-- **Sensitivity Configuration**: Allow adjusting detection strictness based on needs
 - **Response Time**: Monitor and optimize to maintain good user experience
 
 ## Expected Outputs
-1. Claude API client
-2. PII detection implementation using Claude
-3. Caching layer for efficient API usage
-4. Configuration for different environments
-5. Comprehensive tests
-6. Documentation of approach and prompt engineering
+1. PII detection implementation using Claude via Anthropix
+2. Configuration for different environments
+3. Comprehensive tests
+4. Documentation of approach and prompt engineering
 
-## Time Estimate: 5-6 hours total
+## Time Estimate: 3-4 hours total
