@@ -23,8 +23,8 @@ This stage runs on every push to any branch and on pull requests to the main bra
 
 1. **Setup**: Prepares the environment with Elixir, Erlang, and dependencies
    - Uses Ubuntu latest as the runner
-   - Sets up Elixir 1.15.4 and OTP 26.0
-   - Sets up a PostgreSQL database for testing
+   - Sets up Elixir 1.17.3 and OTP 27.1
+   - Sets up a PostgreSQL 16 database for testing
 
 2. **Dependency Management**:
    - Caches dependencies to speed up builds
