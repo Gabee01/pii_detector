@@ -42,14 +42,18 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
   describe "detect_pii/1" do
     test "returns false for content without PII" do
       # Set mock response
-      Process.put(:anthropix_response, {:ok, %{
-        "content" => [
-          %{
-            "type" => "text",
-            "text" => ~s({"has_pii": false, "categories": [], "explanation": "No PII found"})
-          }
-        ]
-      }})
+      Process.put(
+        :anthropix_response,
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" => ~s({"has_pii": false, "categories": [], "explanation": "No PII found"})
+             }
+           ]
+         }}
+      )
 
       content = %{text: "This is a normal message", files: [], attachments: []}
       assert {:pii_detected, false, []} = PIIDetector.detect_pii(content)
@@ -57,16 +61,26 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
 
     test "detects PII in text" do
       # Set mock response
-      Process.put(:anthropix_response, {:ok, %{
-        "content" => [
-          %{
-            "type" => "text",
-            "text" => ~s({"has_pii": true, "categories": ["email", "phone"], "explanation": "Contains email and phone"})
-          }
-        ]
-      }})
+      Process.put(
+        :anthropix_response,
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s({"has_pii": true, "categories": ["email", "phone"], "explanation": "Contains email and phone"})
+             }
+           ]
+         }}
+      )
 
-      content = %{text: "Contact me at john.doe@example.com or 555-123-4567", files: [], attachments: []}
+      content = %{
+        text: "Contact me at john.doe@example.com or 555-123-4567",
+        files: [],
+        attachments: []
+      }
+
       assert {:pii_detected, true, ["email", "phone"]} = PIIDetector.detect_pii(content)
     end
 
@@ -83,14 +97,19 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
     end
 
     test "detects PII in attachments" do
-      Process.put(:anthropix_response, {:ok, %{
-        "content" => [
-          %{
-            "type" => "text",
-            "text" => ~s({"has_pii": true, "categories": ["ssn"], "explanation": "Contains SSN"})
-          }
-        ]
-      }})
+      Process.put(
+        :anthropix_response,
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s({"has_pii": true, "categories": ["ssn"], "explanation": "Contains SSN"})
+             }
+           ]
+         }}
+      )
 
       content = %{
         text: "See attachment",
@@ -102,28 +121,37 @@ defmodule PIIDetector.Detector.PIIDetectorTest do
     end
 
     test "handles invalid JSON response" do
-      Process.put(:anthropix_response, {:ok, %{
-        "content" => [
-          %{
-            "type" => "text",
-            "text" => "This is not valid JSON"
-          }
-        ]
-      }})
+      Process.put(
+        :anthropix_response,
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" => "This is not valid JSON"
+             }
+           ]
+         }}
+      )
 
       content = %{text: "Some content", files: [], attachments: []}
       assert {:pii_detected, false, []} = PIIDetector.detect_pii(content)
     end
 
     test "extracts JSON from text with preamble" do
-      Process.put(:anthropix_response, {:ok, %{
-        "content" => [
-          %{
-            "type" => "text",
-            "text" => ~s(Here's the analysis: {"has_pii": true, "categories": ["credit_card"], "explanation": "Contains credit card"})
-          }
-        ]
-      }})
+      Process.put(
+        :anthropix_response,
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s(Here's the analysis: {"has_pii": true, "categories": ["credit_card"], "explanation": "Contains credit card"})
+             }
+           ]
+         }}
+      )
 
       content = %{text: "My card: 4111-1111-1111-1111", files: [], attachments: []}
       assert {:pii_detected, true, ["credit_card"]} = PIIDetector.detect_pii(content)

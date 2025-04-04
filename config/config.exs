@@ -54,7 +54,8 @@ config :logger, :console,
     :channel_id,
     :error,
     :reason,
-    :categories
+    :categories,
+    :response
   ]
 
 # Use Jason for JSON parsing in Phoenix

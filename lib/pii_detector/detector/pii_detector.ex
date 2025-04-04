@@ -41,14 +41,14 @@ defmodule PIIDetector.Detector.PIIDetector do
     text = content.text || ""
 
     # Add text from attachments
-    attachment_text = content.attachments
-      |> Enum.map(&extract_attachment_text/1)
-      |> Enum.join("\n")
+    attachment_text =
+      content.attachments
+      |> Enum.map_join("\n", &extract_attachment_text/1)
 
     # Add text from files (placeholder - will be implemented in Task 6)
-    file_text = content.files
-      |> Enum.map(&extract_file_text/1)
-      |> Enum.join("\n")
+    file_text =
+      content.files
+      |> Enum.map_join("\n", &extract_file_text/1)
 
     [text, attachment_text, file_text]
     |> Enum.filter(&(String.trim(&1) != ""))
@@ -82,13 +82,13 @@ defmodule PIIDetector.Detector.PIIDetector do
     model = get_model_name()
 
     # Send request to Claude through Anthropix
-    case anthropix_module().chat(client, [
-      model: model,
-      messages: messages,
-      system: pii_detection_system_prompt(),
-      temperature: 0.1,
-      max_tokens: 1024
-    ]) do
+    case anthropix_module().chat(client,
+           model: model,
+           messages: messages,
+           system: pii_detection_system_prompt(),
+           temperature: 0.1,
+           max_tokens: 1024
+         ) do
       {:ok, response} ->
         parse_claude_response(response)
 
@@ -109,13 +109,15 @@ defmodule PIIDetector.Detector.PIIDetector do
 
   defp get_model_name do
     if Mix.env() == :prod do
+      # Fallback default
       Application.get_env(:pii_detector, :claude)[:prod_model] ||
         System.get_env("CLAUDE_PROD_MODEL") ||
-        "claude-3-sonnet-20240229" # Fallback default
+        "claude-3-sonnet-20240229"
     else
+      # Fallback default
       Application.get_env(:pii_detector, :claude)[:dev_model] ||
         System.get_env("CLAUDE_DEV_MODEL") ||
-        "claude-3-haiku-20240307" # Fallback default
+        "claude-3-haiku-20240307"
     end
   end
 
@@ -168,21 +170,23 @@ defmodule PIIDetector.Detector.PIIDetector do
     # Parse JSON from text
     case Jason.decode(text) do
       {:ok, decoded} ->
-        {:ok, %{
-          has_pii: decoded["has_pii"],
-          categories: decoded["categories"] || [],
-          explanation: decoded["explanation"]
-        }}
+        {:ok,
+         %{
+           has_pii: decoded["has_pii"],
+           categories: decoded["categories"] || [],
+           explanation: decoded["explanation"]
+         }}
 
       {:error, _} ->
         # Try extracting JSON from text
         case extract_json_from_text(text) do
           {:ok, decoded} ->
-            {:ok, %{
-              has_pii: decoded["has_pii"],
-              categories: decoded["categories"] || [],
-              explanation: decoded["explanation"]
-            }}
+            {:ok,
+             %{
+               has_pii: decoded["has_pii"],
+               categories: decoded["categories"] || [],
+               explanation: decoded["explanation"]
+             }}
 
           {:error, reason} ->
             Logger.error("Failed to parse Claude response", error: reason, response: text)
@@ -193,9 +197,8 @@ defmodule PIIDetector.Detector.PIIDetector do
 
   defp extract_text_from_response(%{"content" => content}) do
     content
-    |> Enum.filter(& &1["type"] == "text")
-    |> Enum.map(& &1["text"])
-    |> Enum.join("\n")
+    |> Enum.filter(&(&1["type"] == "text"))
+    |> Enum.map_join("\n", & &1["text"])
   end
 
   defp extract_json_from_text(text) do
