@@ -1,5 +1,5 @@
 defmodule PiiDetectorWeb.ErrorJSONTest do
-  use PiiDetectorWeb.ConnCase, async: true
+  use ExUnit.Case, async: true
 
   test "renders 404" do
     assert PiiDetectorWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}

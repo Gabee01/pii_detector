@@ -1,18 +1,15 @@
-# Task 1: Infrastructure & Project Setup
+# Task 1: Infrastructure & Project Setup [COMPLETE]
 
 This task focuses on creating the application foundation, setting up deployment infrastructure, and establishing CI/CD pipelines.
 
 ## 1.1. Initialize Elixir/Phoenix Application
 
 ```bash
-# Create new Phoenix application with HTML/assets for future admin interface
+# Create new Phoenix application with HTML/assets for future interface
 mix phx.new . --no-mailer --no-dashboard
 
 # Move into project directory
 cd pii_detector
-
-# Generate authentication system for future admin interface
-mix phx.gen.auth Accounts User users
 
 # Run migrations
 mix ecto.create
@@ -264,7 +261,6 @@ This task sets up:
 2. CI/CD pipeline with GitHub Actions
 3. Fly.io deployment configuration
 4. Minimal application supervision tree
-5. Admin user management foundation
 6. Placeholder API endpoints for webhooks
 
 We're focusing only on the infrastructure essentials. We'll implement the actual functionality incrementally in subsequent tasks.
