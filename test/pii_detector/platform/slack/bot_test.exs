@@ -58,6 +58,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
     expect(MockPIIDetector, :detect_pii, fn _content ->
       {:pii_detected, true, ["test-pii"]}
     end)
+
     context
   end
 
@@ -66,6 +67,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       assert content.text == "Hello world"
       {:pii_detected, false, []}
     end)
+
     context
   end
 
@@ -83,6 +85,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
         assert params.ts == "1234567890.123456"
         {:ok, %{"ok" => true}}
     end)
+
     context
   end
 
@@ -93,6 +96,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "chat.delete", ^token, _params ->
         {:ok, %{"ok" => false, "error" => "cant_delete_message"}}
     end)
+
     context
   end
 
@@ -103,6 +107,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "chat.delete", ^token, _params ->
         {:ok, %{"ok" => false, "error" => "message_not_found"}}
     end)
+
     context
   end
 
@@ -111,8 +116,13 @@ defmodule PIIDetector.Platform.Slack.BotTest do
 
     expect(MockAPI, :post, fn
       "chat.delete", ^token, _params ->
-        {:ok, %{"ok" => false, "error" => if(context[:custom_error], do: context[:custom_error], else: "other_error")}}
+        {:ok,
+         %{
+           "ok" => false,
+           "error" => if(context[:custom_error], do: context[:custom_error], else: "other_error")
+         }}
     end)
+
     context
   end
 
@@ -123,6 +133,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "chat.delete", ^token, _params ->
         {:error, "server_error"}
     end)
+
     context
   end
 
@@ -138,14 +149,20 @@ defmodule PIIDetector.Platform.Slack.BotTest do
         assert params.users == "U123456"
         {:ok, %{"ok" => true, "channel" => %{"id" => "D123456"}}}
     end)
+
     context
   end
 
   defp setup_open_conversation(%{open_conversation: :error} = context) do
     expect(MockAPI, :post, fn
       "conversations.open", _token, _params ->
-        {:ok, %{"ok" => false, "error" => if(context[:open_error], do: context[:open_error], else: "user_not_found")}}
+        {:ok,
+         %{
+           "ok" => false,
+           "error" => if(context[:open_error], do: context[:open_error], else: "user_not_found")
+         }}
     end)
+
     context
   end
 
@@ -154,6 +171,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "conversations.open", _token, _params ->
         {:error, "server_error"}
     end)
+
     context
   end
 
@@ -170,14 +188,20 @@ defmodule PIIDetector.Platform.Slack.BotTest do
         assert params.text =~ "Your message has been removed"
         {:ok, %{"ok" => true}}
     end)
+
     context
   end
 
   defp setup_post_message(%{post_message: :error} = context) do
     expect(MockAPI, :post, fn
       "chat.postMessage", _token, _params ->
-        {:ok, %{"ok" => false, "error" => if(context[:post_error], do: context[:post_error], else: "not_allowed")}}
+        {:ok,
+         %{
+           "ok" => false,
+           "error" => if(context[:post_error], do: context[:post_error], else: "not_allowed")
+         }}
     end)
+
     context
   end
 
@@ -186,6 +210,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "chat.postMessage", _token, _params ->
         {:error, "server_error"}
     end)
+
     context
   end
 
@@ -219,73 +244,130 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :success, open_conversation: :success, post_message: :success
-    test "handles messages with PII, deletes message using admin token", %{bot: bot, message: message} do
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :success,
+         open_conversation: :success,
+         post_message: :success
+    test "handles messages with PII, deletes message using admin token", %{
+      bot: bot,
+      message: message
+    } do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: false, delete_response: :success, open_conversation: :success, post_message: :success
-    test "falls back to bot token for message deletion when admin token not set", %{bot: bot, message: message} do
+    @tag pii_detected: true,
+         admin_token: false,
+         delete_response: :success,
+         open_conversation: :success,
+         post_message: :success
+    test "falls back to bot token for message deletion when admin token not set", %{
+      bot: bot,
+      message: message
+    } do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :cant_delete, open_conversation: :success, post_message: :success
-    test "handles admin token deletion failure with cant_delete_message error", %{bot: bot, message: message} do
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :cant_delete,
+         open_conversation: :success,
+         post_message: :success
+    test "handles admin token deletion failure with cant_delete_message error", %{
+      bot: bot,
+      message: message
+    } do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :message_not_found, open_conversation: :success, post_message: :success
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :message_not_found,
+         open_conversation: :success,
+         post_message: :success
     test "handles message_not_found error during deletion", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :other_error, open_conversation: :success, post_message: :success
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :other_error,
+         open_conversation: :success,
+         post_message: :success
     test "handles other admin token error during deletion", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :server_error, open_conversation: :success, post_message: :success
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :server_error,
+         open_conversation: :success,
+         post_message: :success
     test "handles admin token server error during deletion", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: false, delete_response: :server_error, open_conversation: :success, post_message: :success
+    @tag pii_detected: true,
+         admin_token: false,
+         delete_response: :server_error,
+         open_conversation: :success,
+         post_message: :success
     test "handles bot token server error during deletion", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: false, delete_response: :other_error, custom_error: "another_error", open_conversation: :success, post_message: :success
+    @tag pii_detected: true,
+         admin_token: false,
+         delete_response: :other_error,
+         custom_error: "another_error",
+         open_conversation: :success,
+         post_message: :success
     test "handles bot token other error during deletion", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :success, open_conversation: :error, open_error: "user_not_found"
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :success,
+         open_conversation: :error,
+         open_error: "user_not_found"
     test "handles failure to open conversation with user", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :success, open_conversation: :server_error
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :success,
+         open_conversation: :server_error
     test "handles conversation open server error", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :success, open_conversation: :success, post_message: :error
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :success,
+         open_conversation: :success,
+         post_message: :error
     test "handles failure to send notification message", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
     end
 
-    @tag pii_detected: true, admin_token: true, delete_response: :success, open_conversation: :success, post_message: :server_error
+    @tag pii_detected: true,
+         admin_token: true,
+         delete_response: :success,
+         open_conversation: :success,
+         post_message: :server_error
     test "handles chat.postMessage server error", %{bot: bot, message: message} do
       result = Bot.handle_event("message", message, bot)
       assert result == :ok
