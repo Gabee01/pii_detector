@@ -8,5 +8,5 @@ defmodule PIIDetector.TestMocks do
   defmock(PIIDetector.Detector.MockPIIDetector, for: PIIDetector.Detector.PIIDetectorBehaviour)
 
   # Mock for the Slack API
-  defmock(PIIDetector.Slack.MockAPI, for: PIIDetector.Slack.APIBehaviour)
+  defmock(PIIDetector.Platform.Slack.MockAPI, for: PIIDetector.Platform.Slack.APIBehaviour)
 end
