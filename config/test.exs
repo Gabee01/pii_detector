@@ -35,3 +35,10 @@ config :phoenix_live_view,
 
 # Do not start the Slack bot in tests
 config :pii_detector, :start_slack_bot, false
+
+# Configure Oban to use testing mode in test environment
+config :pii_detector, Oban, testing: :manual
+
+# Configure mocks for testing
+config :pii_detector, :pii_detector_module, PIIDetector.Detector.PIIDetectorMock
+config :pii_detector, :slack_api_module, PIIDetector.Platform.Slack.APIMock

@@ -11,7 +11,8 @@ defmodule PiiDetector.Application do
       PiiDetectorWeb.Telemetry,
       PiiDetector.Repo,
       {DNSCluster, query: Application.get_env(:pii_detector, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: PiiDetector.PubSub}
+      {Phoenix.PubSub, name: PiiDetector.PubSub},
+      {Oban, Application.fetch_env!(:pii_detector, Oban)}
       # Start a worker by calling: PiiDetector.Worker.start_link(arg)
       # {PiiDetector.Worker, arg},
     ]
