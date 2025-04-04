@@ -6,7 +6,7 @@ This task focuses on creating the application foundation, setting up deployment 
 
 ```bash
 # Create new Phoenix application with HTML/assets for future admin interface
-mix phx.new pii_detector --no-mailer --no-dashboard
+mix phx.new . --no-mailer --no-dashboard
 
 # Move into project directory
 cd pii_detector
@@ -216,71 +216,7 @@ defmodule PIIDetector.Application do
 end
 ```
 
-## 1.7. Set Up Admin User Creation
-
-Create a migration to add an admin flag to users:
-
-```bash
-mix ecto.gen.migration add_admin_flag_to_users
-```
-
-Edit the migration file:
-
-```elixir
-def change do
-  alter table(:users) do
-    add :is_admin, :boolean, default: false, null: false
-  end
-  
-  create index(:users, [:is_admin])
-end
-```
-
-Create a mix task for admin user creation:
-
-```elixir
-# lib/mix/tasks/create_admin.ex
-defmodule Mix.Tasks.PiiDetector.CreateAdmin do
-  use Mix.Task
-  
-  alias PIIDetector.Accounts
-  alias PIIDetector.Repo
-  
-  @shortdoc "Creates an admin user"
-  
-  @impl Mix.Task
-  def run(args) do
-    if length(args) != 2 do
-      Mix.shell().error("Expected exactly 2 arguments: email and password")
-      Mix.shell().info("Usage: mix pii_detector.create_admin email@example.com password")
-      exit({:shutdown, 1})
-    end
-    
-    [email, password] = args
-    
-    Mix.Task.run("app.start")
-    
-    case Accounts.register_user(%{
-      email: email,
-      password: password
-    }) do
-      {:ok, user} ->
-        # Update user to be an admin
-        user
-        |> Ecto.Changeset.change(%{is_admin: true})
-        |> Repo.update!()
-        
-        Mix.shell().info("Admin user created successfully: #{email}")
-        
-      {:error, changeset} ->
-        Mix.shell().error("Failed to create admin user")
-        exit({:shutdown, 1})
-    end
-  end
-end
-```
-
-## 1.8. Add Basic API Endpoints
+## 1.7. Add Basic API Endpoints
 
 Update `lib/pii_detector_web/router.ex` to add API routes for webhooks:
 

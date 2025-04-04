@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=pii-checker_dev
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/16.0/data
+    ports:
+      - "5432:5432"
+    networks:
+      - pii-checker-network
+
+volumes:
+  pgdata:
+
+networks:
+  pii-checker-network:
