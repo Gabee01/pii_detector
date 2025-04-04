@@ -2,8 +2,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
   use ExUnit.Case
   import Mox
   alias PIIDetector.Detector.MockPIIDetector
-  alias PIIDetector.Platform.Slack.Bot
-  alias PIIDetector.Slack.MockAPI
+  alias PIIDetector.Platform.Slack.{Bot, MockAPI}
 
   # Make sure mocks expectations are verified when the test exits
   setup :verify_on_exit!
@@ -13,7 +12,8 @@ defmodule PIIDetector.Platform.Slack.BotTest do
     Application.put_env(:pii_detector, :pii_detector_module, MockPIIDetector)
 
     # Configure the Slack API mock for tests
-    Application.put_env(:pii_detector, :slack_api_module, MockAPI)
+    # Use the new path for the slack_underlying_api config
+    Application.put_env(:pii_detector, :slack_underlying_api, MockAPI)
 
     # Default bot structure for tests
     bot = %{token: "xoxb-test-token", team_id: "T12345", user_id: "U12345"}
@@ -29,7 +29,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
     on_exit(fn ->
       # Clean up the environment
       Application.delete_env(:pii_detector, :pii_detector_module)
-      Application.delete_env(:pii_detector, :slack_api_module)
+      Application.delete_env(:pii_detector, :slack_underlying_api)
     end)
 
     %{bot: bot, message: message}
@@ -185,7 +185,7 @@ defmodule PIIDetector.Platform.Slack.BotTest do
       "chat.postMessage", token, params ->
         assert token == "xoxb-test-token"
         assert params.channel == "D123456"
-        assert params.text =~ "Your message has been removed"
+        assert params.text =~ "Your message was removed because it contained personal identifiable information"
         {:ok, %{"ok" => true}}
     end)
 
