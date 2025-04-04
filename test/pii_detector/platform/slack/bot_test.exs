@@ -1,8 +1,8 @@
 defmodule PIIDetector.Platform.Slack.BotTest do
   use ExUnit.Case
   import Mox
-  alias PIIDetector.Platform.Slack.Bot
   alias PIIDetector.Detector.MockPIIDetector
+  alias PIIDetector.Platform.Slack.Bot
   alias PIIDetector.Slack.MockAPI
 
   # Make sure mocks expectations are verified when the test exits
