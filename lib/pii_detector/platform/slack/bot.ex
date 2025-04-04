@@ -7,8 +7,6 @@ defmodule PIIDetector.Platform.Slack.Bot do
 
   alias PIIDetector.Detector.PIIDetector
   alias PIIDetector.Platform.Slack.MessageFormatter
-  alias Slack.Web.Chat
-  alias Slack.Web.Im
 
   @impl true
   def handle_event("message", %{"subtype" => _}, _bot) do
@@ -25,20 +23,27 @@ defmodule PIIDetector.Platform.Slack.Bot do
   @impl true
   def handle_event(
         "message",
-        %{"channel" => channel, "user" => user, "ts" => _ts} = message,
-        _bot
+        %{"channel" => channel, "user" => user, "ts" => ts} = message,
+        bot
       ) do
     # Extract message data for PII detection
-    _message_content = extract_message_content(message)
+    message_content = extract_message_content(message)
 
     # In Task 4, replace this with actual PII detection
     # For now, just log that we received a message
     Logger.debug("Received message from #{user} in #{channel}")
 
-    # Placeholder for PII detection logic
-    # If PII is detected:
-    # 1. Delete the message
-    # 2. Send a DM to the user
+    # Example of detecting PII with our placeholder detector
+    case PIIDetector.detect_pii(message_content) do
+      {:pii_detected, true, categories} ->
+        Logger.info("Detected PII in categories: #{inspect(categories)}")
+        delete_message(channel, ts, bot.token)
+        notify_user(user, message_content, bot.token)
+
+      {:pii_detected, false, _} ->
+        # No PII detected, do nothing
+        :ok
+    end
 
     :ok
   end
@@ -61,11 +66,15 @@ defmodule PIIDetector.Platform.Slack.Bot do
   end
 
   # Delete a message containing PII
-  defp delete_message(channel, ts) do
-    case Chat.delete(channel, ts) do
-      {:ok, _response} ->
+  defp delete_message(channel, ts, token) do
+    case Slack.API.post("chat.delete", token, %{channel: channel, ts: ts}) do
+      {:ok, %{"ok" => true}} ->
         Logger.info("Deleted message containing PII in channel #{channel}")
         :ok
+
+      {:ok, %{"ok" => false, "error" => error}} ->
+        Logger.error("Failed to delete message: #{error}")
+        {:error, error}
 
       {:error, reason} ->
         Logger.error("Failed to delete message: #{inspect(reason)}")
@@ -74,23 +83,34 @@ defmodule PIIDetector.Platform.Slack.Bot do
   end
 
   # Send a DM to a user about their deleted message
-  defp notify_user(user, original_content) do
+  defp notify_user(user, original_content, token) do
     # Open IM channel with user
-    case Im.open(user) do
-      {:ok, %{"channel" => %{"id" => im_channel}}} ->
+    case Slack.API.post("conversations.open", token, %{users: user}) do
+      {:ok, %{"ok" => true, "channel" => %{"id" => im_channel}}} ->
         # Format the notification message
-        message = MessageFormatter.format_pii_notification(original_content)
+        message_text = MessageFormatter.format_pii_notification(original_content)
 
         # Send the message
-        case Chat.post_message(im_channel, message) do
-          {:ok, _} ->
+        case Slack.API.post("chat.postMessage", token, %{
+          channel: im_channel,
+          text: message_text
+        }) do
+          {:ok, %{"ok" => true}} ->
             Logger.info("Notified user #{user} about PII in their message")
             :ok
+
+          {:ok, %{"ok" => false, "error" => error}} ->
+            Logger.error("Failed to notify user #{user}: #{error}")
+            {:error, error}
 
           {:error, reason} ->
             Logger.error("Failed to notify user #{user}: #{inspect(reason)}")
             {:error, reason}
         end
+
+      {:ok, %{"ok" => false, "error" => error}} ->
+        Logger.error("Failed to open IM with user #{user}: #{error}")
+        {:error, error}
 
       {:error, reason} ->
         Logger.error("Failed to open IM with user #{user}: #{inspect(reason)}")
