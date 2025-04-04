@@ -32,3 +32,6 @@ config :phoenix, :plug_init_mode, :runtime
 # Enable helpful, but potentially expensive runtime checks
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
+
+# Do not start the Slack bot in tests
+config :pii_detector, :start_slack_bot, false
