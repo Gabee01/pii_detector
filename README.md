@@ -49,6 +49,40 @@ The Slack integration requires the following environment variables:
 - `SLACK_BOT_TOKEN` - Bot user token (starts with `xoxb-`)
 - `SLACK_ADMIN_TOKEN` - Admin user token for message deletion (starts with `xoxp-`)
 
+set up a Slack app with the necessary permissions:
+
+1. Go to https://api.slack.com/apps
+2. Click "Create New App" > "From scratch"
+3. Name your app "PII Detector" and select your workspace
+4. Configure the following:
+
+### Bot Token Scopes
+Under "OAuth & Permissions" > "Scopes" > "Bot Token Scopes", add:
+- `chat:write` - For sending DMs and deleting messages
+- `channels:history` - For accessing messages in public channels
+- `channels:read` - For public channel information
+- `groups:history` - For accessing messages in private channels
+- `groups:read` - For private channel information
+- `im:read` - For direct message channel info
+- `im:write` - For starting DM conversations
+- `users:read` - For user information
+- `users:read.email` - For email-based user lookup
+
+### Enable Socket Mode
+1. Go to "Socket Mode" in the sidebar
+2. Enable Socket Mode
+3. Create an app-level token with the `connections:write` scope
+4. Save this app token (starts with `xapp-`)
+
+### Event Subscriptions
+Under "Event Subscriptions":
+1. Enable events
+2. Subscribe to bot events:
+   - `message.channels` - For messages in public channels
+   - `message.groups` - For messages in private channels
+   - `member_joined_channel` - When bot joins a channel
+   - `channel_left` - When bot leaves a channel
+
 ### Admin Token Setup
 
 For the PII Detector to function properly with message deletion capabilities, it needs a Workspace Admin user token. This token allows the application to delete messages posted by any user when PII is detected.
@@ -64,6 +98,10 @@ To set up the admin token:
 4. Install the app to your workspace while logged in as a Workspace Admin
 5. Copy the User OAuth Token (starts with `xoxp-`)
 6. Add this token to your environment variables as `SLACK_ADMIN_TOKEN`
+
+### Install App to Workspace
+1. Go to "Install App" and install it to your workspace
+2. Save the Bot User OAuth Token (starts with `xoxb-`) for your application
 
 #### Security Considerations
 
