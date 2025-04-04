@@ -23,10 +23,30 @@ This application monitors Slack channels and Notion databases for messages or do
 - `phoenix` - Web framework
 - `phoenix_live_view` - Real-time user interface updates
 - `req` - HTTP client for API integrations
+- `slack_elixir` - Slack integration via Socket Mode
 - `credo` - Static code analysis
 - `excoveralls` - Test coverage reporting
 - `bcrypt_elixir` - Password hashing
 - `hackney` - HTTP client used by Swoosh
+
+## Slack Integration
+
+The application integrates with Slack using Socket Mode to monitor messages in channels. When PII is detected:
+
+1. The bot attempts to delete the message with PII
+2. The bot sends a direct message to the user explaining why their message contained PII
+
+### Limitations
+
+- The bot can only delete messages that it posts. Due to Slack's security model, bots cannot delete messages posted by users.
+- When PII is detected in a user's message, the bot will notify them via DM, but cannot remove the original message.
+- For full message deletion capabilities, a Slack admin would need to install the app with admin privileges.
+
+### Configuration
+
+The Slack integration requires the following environment variables:
+- `SLACK_APP_TOKEN` - Socket Mode app-level token (starts with `xapp-`)
+- `SLACK_BOT_TOKEN` - Bot user token (starts with `xoxb-`)
 
 ## Development Setup
 

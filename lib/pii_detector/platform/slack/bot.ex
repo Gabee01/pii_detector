@@ -6,7 +6,6 @@ defmodule PIIDetector.Platform.Slack.Bot do
   require Logger
 
   alias PIIDetector.Detector.PIIDetector
-  alias PIIDetector.Platform.Slack.MessageFormatter
 
   @impl true
   def handle_event("message", %{"subtype" => _}, _bot) do
@@ -67,10 +66,25 @@ defmodule PIIDetector.Platform.Slack.Bot do
 
   # Delete a message containing PII
   defp delete_message(channel, ts, token) do
-    case Slack.API.post("chat.delete", token, %{channel: channel, ts: ts}) do
+    case Slack.API.post("chat.delete", token, %{
+      channel: channel,
+      ts: ts
+    }) do
       {:ok, %{"ok" => true}} ->
-        Logger.info("Deleted message containing PII in channel #{channel}")
+        Logger.info("Successfully deleted message containing PII in channel #{channel}")
         :ok
+
+      {:ok, %{"ok" => false, "error" => "message_not_found"}} ->
+        Logger.warning("Unable to delete message: Message not found")
+        {:error, :message_not_found}
+
+      {:ok, %{"ok" => false, "error" => "cant_delete_message"}} ->
+        Logger.warning(
+          "Unable to delete message: Bot lacks permission to delete messages. " <>
+          "This is normal behavior as Slack only allows users to delete their own messages. " <>
+          "The user has been notified about the PII content."
+        )
+        {:error, :cant_delete_message}
 
       {:ok, %{"ok" => false, "error" => error}} ->
         Logger.error("Failed to delete message: #{error}")
@@ -87,8 +101,8 @@ defmodule PIIDetector.Platform.Slack.Bot do
     # Open IM channel with user
     case Slack.API.post("conversations.open", token, %{users: user}) do
       {:ok, %{"ok" => true, "channel" => %{"id" => im_channel}}} ->
-        # Format the notification message
-        message_text = MessageFormatter.format_pii_notification(original_content)
+        # Format the notification message using our internal function
+        message_text = format_notification(original_content)
 
         # Send the message
         case Slack.API.post("chat.postMessage", token, %{
@@ -116,5 +130,24 @@ defmodule PIIDetector.Platform.Slack.Bot do
         Logger.error("Failed to open IM with user #{user}: #{inspect(reason)}")
         {:error, reason}
     end
+  end
+
+  # Internal function to format notification messages
+  defp format_notification(original_content) do
+    """
+    :warning: Your message has been removed because it contained personal identifiable information (PII).
+
+    Please post messages without sensitive information such as:
+    • Social security numbers
+    • Credit card numbers
+    • Personal addresses
+    • Full names with contact information
+    • Email addresses
+
+    Here's your original message for reference:
+    ```
+    #{original_content.text}
+    ```
+    """
   end
 end
