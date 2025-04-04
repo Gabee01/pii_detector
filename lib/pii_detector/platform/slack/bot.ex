@@ -166,10 +166,19 @@ defmodule PIIDetector.Platform.Slack.Bot do
   end
 
   # Build notification message
-  defp build_notification_message(_message_content) do
+  defp build_notification_message(message_content) do
     """
-    Your message has been removed because it contained sensitive information.
-    Please be careful not to share Personal Identifiable Information (PII) in public channels.
+    :warning: Your message has been removed because it contained personal identifiable information (PII).
+    Please post messages without sensitive information such as:
+    • Social security numbers
+    • Credit card numbers
+    • Personal addresses
+    • Full names with contact information
+    • Email addresses
+    Here's your original message for reference:
+    ```
+    #{message_content.text}
+    ```
     """
   end
 end
