@@ -60,8 +60,11 @@ defmodule PIIDetector.Platform.Slack.Bot do
           {:error, :admin_token_not_set} ->
             # Fall back to bot token if admin token is not set
             delete_message_with_bot(channel, ts, bot.token)
-          result -> result
+
+          result ->
+            result
         end
+
         notify_user(user, message_content, bot.token)
 
       {:pii_detected, false, _} ->
