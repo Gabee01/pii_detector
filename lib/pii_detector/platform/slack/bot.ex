@@ -5,7 +5,21 @@ defmodule PIIDetector.Platform.Slack.Bot do
   use Slack.Bot
   require Logger
 
-  alias PIIDetector.Detector.PIIDetector
+  # Use PIIDetector by default, but allow for mocking in tests
+  @detector PIIDetector.Detector.PIIDetector
+
+  # Default API module
+  @api_module Slack.API
+
+  # Get the actual detector module (allows for test mocking)
+  defp detector do
+    Application.get_env(:pii_detector, :pii_detector_module, @detector)
+  end
+
+  # Get the API module (allows for test mocking)
+  defp api do
+    Application.get_env(:pii_detector, :slack_api_module, @api_module)
+  end
 
   # Add function to get the admin token directly from environment
   defp admin_token do
@@ -38,7 +52,7 @@ defmodule PIIDetector.Platform.Slack.Bot do
     Logger.debug("Received message from #{user} in #{channel}")
 
     # Example of detecting PII with our placeholder detector
-    case PIIDetector.detect_pii(message_content) do
+    case detector().detect_pii(message_content) do
       {:pii_detected, true, categories} ->
         Logger.info("Detected PII in categories: #{inspect(categories)}")
         # Try with admin token first, fall back to bot token if admin token isn't set
@@ -67,7 +81,7 @@ defmodule PIIDetector.Platform.Slack.Bot do
   # Helper functions
 
   # Extract content from message for PII detection
-  defp extract_message_content(message) do
+  def extract_message_content(message) do
     %{
       text: message["text"] || "",
       files: message["files"] || [],
@@ -83,125 +97,76 @@ defmodule PIIDetector.Platform.Slack.Bot do
     # 3. Use a fallback if neither is available
     admin_token = admin_token()
 
-    if is_nil(admin_token) || admin_token == "" do
-      Logger.warning("Admin token not set. Falling back to bot token for message deletion.")
+    if admin_token == nil || admin_token == "" do
+      Logger.warning("Admin token not set, falling back to bot token for message deletion")
       {:error, :admin_token_not_set}
     else
-      case Slack.API.post("chat.delete", admin_token, %{
-        channel: channel,
-        ts: ts
-      }) do
-        {:ok, %{"ok" => true}} ->
-          Logger.info("Successfully deleted message containing PII using admin token in channel #{channel}")
-          :ok
-
-        {:ok, %{"ok" => false, "error" => "message_not_found"}} ->
-          Logger.warning("Unable to delete message: Message not found")
-          {:error, :message_not_found}
-
-        {:ok, %{"ok" => false, "error" => "cant_delete_message"}} ->
-          Logger.warning(
-            "Unable to delete message: Admin token lacks permission to delete messages. " <>
-            "Make sure the token has chat:write permissions and belongs to an admin user. " <>
-            "The user has been notified about the PII content."
-          )
-          {:error, :cant_delete_message}
-
-        {:ok, %{"ok" => false, "error" => error}} ->
-          Logger.error("Failed to delete message using admin token: #{error}")
-          {:error, error}
-
-        {:error, reason} ->
-          Logger.error("Failed to delete message using admin token: #{inspect(reason)}")
-          {:error, reason}
-      end
+      delete_message(channel, ts, admin_token)
     end
   end
 
-  # Delete a message using bot token (fallback method)
-  defp delete_message_with_bot(channel, ts, token) do
-    case Slack.API.post("chat.delete", token, %{
-      channel: channel,
-      ts: ts
-    }) do
-      {:ok, %{"ok" => true}} ->
-        Logger.info("Successfully deleted message containing PII in channel #{channel}")
-        :ok
+  # Delete a message using bot token
+  defp delete_message_with_bot(channel, ts, bot_token) do
+    delete_message(channel, ts, bot_token)
+  end
 
-      {:ok, %{"ok" => false, "error" => "message_not_found"}} ->
-        Logger.warning("Unable to delete message: Message not found")
-        {:error, :message_not_found}
+  # Delete a message using specified token
+  defp delete_message(channel, ts, token) do
+    Logger.debug("Attempting to delete message in #{channel} with ts #{ts}")
+
+    case api().post("chat.delete", token, %{channel: channel, ts: ts}) do
+      {:ok, %{"ok" => true}} ->
+        Logger.info("Successfully deleted message in #{channel}")
+        {:ok, :deleted}
 
       {:ok, %{"ok" => false, "error" => "cant_delete_message"}} ->
-        Logger.warning(
-          "Unable to delete message: Bot lacks permission to delete messages. " <>
-          "This is normal behavior as Slack only allows users to delete their own messages. " <>
-          "The user has been notified about the PII content."
-        )
+        Logger.warning("Cannot delete message in #{channel}: permission denied")
         {:error, :cant_delete_message}
 
+      {:ok, %{"ok" => false, "error" => "message_not_found"}} ->
+        Logger.warning("Cannot delete message in #{channel}: message not found")
+        {:error, :message_not_found}
+
       {:ok, %{"ok" => false, "error" => error}} ->
-        Logger.error("Failed to delete message: #{error}")
+        Logger.error("Failed to delete message in #{channel}: #{error}")
         {:error, error}
 
-      {:error, reason} ->
-        Logger.error("Failed to delete message: #{inspect(reason)}")
-        {:error, reason}
+      {:error, error} ->
+        Logger.error("Server error when deleting message in #{channel}: #{inspect(error)}")
+        {:error, :server_error}
     end
   end
 
-  # Send a DM to a user about their deleted message
-  defp notify_user(user, original_content, token) do
-    # Open IM channel with user
-    case Slack.API.post("conversations.open", token, %{users: user}) do
-      {:ok, %{"ok" => true, "channel" => %{"id" => im_channel}}} ->
-        # Format the notification message using our internal function
-        message_text = format_notification(original_content)
+  # Notify user about deleted message
+  defp notify_user(user_id, message_content, bot_token) do
+    Logger.debug("Opening conversation with user #{user_id}")
 
-        # Send the message
-        case Slack.API.post("chat.postMessage", token, %{
-          channel: im_channel,
-          text: message_text
-        }) do
-          {:ok, %{"ok" => true}} ->
-            Logger.info("Notified user #{user} about PII in their message")
-            :ok
-
-          {:ok, %{"ok" => false, "error" => error}} ->
-            Logger.error("Failed to notify user #{user}: #{error}")
-            {:error, error}
-
-          {:error, reason} ->
-            Logger.error("Failed to notify user #{user}: #{inspect(reason)}")
-            {:error, reason}
-        end
-
+    with {:ok, %{"ok" => true, "channel" => %{"id" => channel_id}}} <-
+           api().post("conversations.open", bot_token, %{users: user_id}),
+         notification = build_notification_message(message_content),
+         {:ok, %{"ok" => true}} <-
+           api().post("chat.postMessage", bot_token, %{
+             channel: channel_id,
+             text: notification
+           }) do
+      Logger.info("Successfully sent notification to user #{user_id}")
+      {:ok, :notified}
+    else
       {:ok, %{"ok" => false, "error" => error}} ->
-        Logger.error("Failed to open IM with user #{user}: #{error}")
+        Logger.error("Failed to notify user #{user_id}: #{error}")
         {:error, error}
 
-      {:error, reason} ->
-        Logger.error("Failed to open IM with user #{user}: #{inspect(reason)}")
-        {:error, reason}
+      {:error, error} ->
+        Logger.error("Server error when notifying user #{user_id}: #{inspect(error)}")
+        {:error, :server_error}
     end
   end
 
-  # Internal function to format notification messages
-  defp format_notification(original_content) do
+  # Build notification message
+  defp build_notification_message(_message_content) do
     """
-    :warning: Your message has been removed because it contained personal identifiable information (PII).
-
-    Please post messages without sensitive information such as:
-    • Social security numbers
-    • Credit card numbers
-    • Personal addresses
-    • Full names with contact information
-    • Email addresses
-
-    Here's your original message for reference:
-    ```
-    #{original_content.text}
-    ```
+    Your message has been removed because it contained sensitive information.
+    Please be careful not to share Personal Identifiable Information (PII) in public channels.
     """
   end
 end
