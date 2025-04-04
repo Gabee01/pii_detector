@@ -5,8 +5,8 @@ defmodule PIIDetector.TestMocks do
   import Mox
 
   # Mock for the PII Detector
-  defmock(PIIDetector.Detector.MockPIIDetector, for: PIIDetector.Detector.PIIDetectorBehaviour)
+  defmock(PIIDetector.Detector.PIIDetectorMock, for: PIIDetector.Detector.PIIDetectorBehaviour)
 
   # Mock for the Slack API
-  defmock(PIIDetector.Platform.Slack.MockAPI, for: PIIDetector.Platform.Slack.APIBehaviour)
+  defmock(PIIDetector.Platform.Slack.APIMock, for: PIIDetector.Platform.Slack.APIBehaviour)
 end

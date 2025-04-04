@@ -4,15 +4,8 @@ defmodule PIIDetector.Platform.Slack.Bot do
   """
   use Slack.Bot
   require Logger
-  alias PIIDetector.Platform.Slack.API
 
-  # Use PIIDetector by default, but allow for mocking in tests
-  @detector PIIDetector.Detector.PIIDetector
-
-  # Get the actual detector module (allows for test mocking)
-  defp detector do
-    Application.get_env(:pii_detector, :pii_detector_module, @detector)
-  end
+  alias PiiDetector.Workers.Event.SlackMessageWorker
 
   @impl true
   def handle_event("message", %{"subtype" => _}, _bot) do
@@ -32,26 +25,39 @@ defmodule PIIDetector.Platform.Slack.Bot do
         %{"channel" => channel, "user" => user, "ts" => ts} = message,
         bot
       ) do
-    # Extract message data for PII detection
-    message_content = extract_message_content(message)
-
     # Log the received message
-    Logger.debug("Received message from #{user} in #{channel}")
+    Logger.debug("Received message from #{user} in #{channel}, queueing for processing")
 
-    # Detect PII in the message
-    case detector().detect_pii(message_content) do
-      {:pii_detected, true, categories} ->
-        Logger.info("Detected PII in categories: #{inspect(categories)}")
+    # Create the job args by extracting relevant data from the message
+    job_args = %{
+      "channel" => channel,
+      "user" => user,
+      "ts" => ts,
+      "text" => message["text"],
+      "files" => message["files"],
+      "attachments" => message["attachments"],
+      "token" => bot.token
+    }
 
-        # Delete the message
-        API.delete_message(channel, ts, bot.token)
+    # Enqueue the message for processing
+    job_args
+    |> SlackMessageWorker.new()
+    |> Oban.insert()
+    |> case do
+      {:ok, _job} ->
+        Logger.debug("Successfully queued Slack message for processing",
+          event_type: "message_queued",
+          user_id: user,
+          channel_id: channel
+        )
 
-        # Notify the user
-        API.notify_user(user, message_content, bot.token)
-
-      {:pii_detected, false, _} ->
-        # No PII detected, do nothing
-        :ok
+      {:error, error} ->
+        Logger.error("Failed to queue Slack message: #{inspect(error)}",
+          event_type: "message_queue_failed",
+          user_id: user,
+          channel_id: channel,
+          error: inspect(error)
+        )
     end
 
     :ok
@@ -63,9 +69,10 @@ defmodule PIIDetector.Platform.Slack.Bot do
     :ok
   end
 
-  # Helper functions
-
-  # Extract content from message for PII detection
+  # Helper function for extracting message content (kept for testing)
+  @doc """
+  Extract content from message for PII detection
+  """
   def extract_message_content(message) do
     %{
       text: message["text"] || "",

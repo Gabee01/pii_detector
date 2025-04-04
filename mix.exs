@@ -66,6 +66,9 @@ defmodule PiiDetector.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
 
+      # Event processing
+      {:oban, "~> 2.19"},
+
       # HTTP client
       {:req, "~> 0.4"},
 
