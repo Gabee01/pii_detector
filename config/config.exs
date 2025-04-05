@@ -16,7 +16,7 @@ config :pii_detector, :ai_service, PIIDetector.AI.ClaudeService
 
 # Configure Notion API
 config :pii_detector, PIIDetector.Platform.Notion,
-  api_key: {:system, "NOTION_API_KEY"},
+  api_key: System.get_env("NOTION_API_KEY"),
   base_url: "https://api.notion.com/v1",
   notion_version: "2022-06-28"
 
@@ -64,7 +64,9 @@ config :logger, :console,
     :error,
     :reason,
     :categories,
-    :response
+    :response,
+    :page_id,
+    :stacktrace
   ]
 
 # Use Jason for JSON parsing in Phoenix

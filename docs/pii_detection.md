@@ -11,6 +11,86 @@ The PII detection service:
 3. Processes the AI response to determine if PII is present
 4. Returns a structured response including detected PII types
 
+## End-to-End PII Detection for Notion Pages
+
+The system automatically monitors and processes Notion pages to detect and manage PII content:
+
+### Webhook Integration and Event Processing
+
+1. **Webhook Reception**: Notion webhooks send events to our system when pages are created or updated
+2. **Event Queuing**: Events are processed asynchronously using Oban workers (`NotionEventWorker`)
+3. **Event Types**: We handle various events including `page.created`, `page.updated`, `page.content_updated`, and `page.properties_updated`
+
+### Content Extraction and Processing Flow
+
+For each page event, the system:
+
+1. **Fetches Page Data**: Retrieves the page metadata via Notion API (`Notion.API.get_page/3`)
+2. **Fast Path Check**: Performs quick regex-based scan for obvious PII patterns in the page title
+3. **Fetches Block Content**: If no PII is found in the title, retrieves the full page content blocks
+4. **Processes Child Pages**: Recursively processes any child pages within the content
+5. **Content Extraction**: Converts Notion blocks to plain text for analysis (`Notion.extract_content_from_page/2`)
+6. **PII Detection**: Sends the content to the detector service with appropriate structure:
+   ```elixir
+   detector_input = %{
+     text: content,
+     attachments: [],
+     files: []
+   }
+   detector().detect_pii(detector_input, [])
+   ```
+
+### Handling PII Detection Results
+
+When PII is detected, the system takes appropriate actions:
+
+1. **Logging**: Records detection events with detailed information including PII categories
+2. **Workspace Awareness**: Identifies if the page is a workspace-level page (which cannot be archived via API)
+3. **Page Archiving**: For non-workspace pages containing PII, automatically archives them to prevent exposure
+4. **Error Handling**: Manages various error conditions (API failures, rate limits, etc.) with appropriate logging and recovery
+
+### Workspace vs. Regular Page Handling
+
+The system has special logic for workspace-level pages:
+- Regular pages with PII are archived immediately
+- Workspace-level pages with PII are logged but not archived (due to Notion API limitations)
+- Parent-child relationships are preserved during processing
+
+### Sample Code Flow
+
+```elixir
+# Main processing flow in NotionEventWorker
+def perform(%Oban.Job{args: args}) do
+  event_type = args["type"]
+  page_id = get_page_id_from_event(args)
+  user_id = get_user_id_from_event(args)
+  
+  # Process based on event type
+  result = process_by_event_type(event_type, page_id, user_id)
+  
+  # Log and return result
+  # ...
+end
+
+# PII detection and handling
+defp process_page_content(page_id, user_id, page_result, is_workspace_page) do
+  # Extract and analyze content
+  # ...
+  
+  case pii_result do
+    {:pii_detected, true, categories} ->
+      if is_workspace_page do
+        Logger.warning("Skipping archiving for workspace-level page #{page_id}")
+        :ok
+      else
+        archive_page(page_id)
+      end
+    # Handle other cases
+    # ...
+  end
+end
+```
+
 ## Module Structure
 
 The PII detection functionality is organized as follows:
