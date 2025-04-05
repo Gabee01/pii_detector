@@ -5,43 +5,22 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   This worker handles the asynchronous processing of Notion webhook events
   to detect PII in content and archive pages when PII is found.
 
-  ## Processing Flow
+  ## Responsibility
 
-  1. Event Reception: Receives webhook events from Notion (page.created, page.updated, etc.)
-  2. Data Extraction: Extracts page ID and user ID from various event formats
-  3. Content Processing:
-     - Fetches page metadata from Notion API
-     - Performs a fast path check for obvious PII in page titles (regex-based)
-     - If no PII in title, fetches and analyzes full page content
-     - Recursively processes any child pages within the content
+  The worker's responsibility is focused on:
+  1. Receiving webhook events from Notion
+  2. Extracting needed data from the events
+  3. Delegating to the appropriate processor based on event type
+  4. Handling job success/failure
 
-  ## PII Detection and Actions
-
-  When PII is detected, the worker takes the following actions:
-  - For regular pages: Archives the page to prevent exposure
-  - For workspace-level pages: Logs the finding but skips archiving (API limitation)
-
-  ## Special Handling Cases
-
-  * Workspace Pages: Identified by parent type "workspace" - cannot be archived via API
-  * Child Pages: When detected in blocks, processed recursively before parent page
-  * API Errors: Handled gracefully with appropriate logging
-
-  ## Event Types Supported
-
-  * page.created - New page creation events
-  * page.updated - General page update events
-  * page.content_updated - Content-specific update events
-  * page.properties_updated - Property-specific update events
+  Processing logic is delegated to the PIIDetector.Platform.Notion.PageProcessor module.
   """
   use Oban.Worker, queue: :events, max_attempts: 3
 
   require Logger
 
-  # Default implementations to use when not overridden
-  @default_detector PIIDetector.Detector
-  @default_notion_module PIIDetector.Platform.Notion
-  @default_notion_api PIIDetector.Platform.Notion.API
+  alias PIIDetector.Platform.Notion.PageProcessor
+  alias PIIDetector.Platform.Notion.EventDataExtractor
 
   @doc """
   Process a Notion webhook event.
@@ -61,8 +40,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
     # Extract important data from the event
     event_type = args["type"]
-    page_id = get_page_id_from_event(args)
-    user_id = get_user_id_from_event(args)
+    page_id = EventDataExtractor.get_page_id_from_event(args)
+    user_id = EventDataExtractor.get_user_id_from_event(args)
 
     Logger.info(
       "Processing Notion event: #{event_type} for page #{page_id}",
@@ -99,23 +78,23 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   # Process event based on its type
   defp process_by_event_type("page.created", page_id, user_id) when is_binary(page_id) do
     Logger.debug("Processing page.created event for page_id: #{page_id}")
-    process_page(page_id, user_id)
+    PageProcessor.process_page(page_id, user_id)
   end
 
   defp process_by_event_type("page.updated", page_id, user_id) when is_binary(page_id) do
     Logger.debug("Processing page.updated event for page_id: #{page_id}")
-    process_page(page_id, user_id)
+    PageProcessor.process_page(page_id, user_id)
   end
 
   defp process_by_event_type("page.content_updated", page_id, user_id) when is_binary(page_id) do
     Logger.debug("Processing page.content_updated event for page_id: #{page_id}")
-    process_page(page_id, user_id)
+    PageProcessor.process_page(page_id, user_id)
   end
 
   defp process_by_event_type("page.properties_updated", page_id, user_id)
        when is_binary(page_id) do
     Logger.debug("Processing page.properties_updated event for page_id: #{page_id}")
-    process_page(page_id, user_id)
+    PageProcessor.process_page(page_id, user_id)
   end
 
   defp process_by_event_type(nil, _page_id, _user_id) do
@@ -131,366 +110,5 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   defp process_by_event_type(event_type, _page_id, _user_id) do
     Logger.info("Ignoring unhandled Notion event type: #{event_type}")
     :ok
-  end
-
-  # Main function to process a page for PII
-  defp process_page(page_id, user_id) do
-    Logger.debug("Starting to process page #{page_id} for PII detection")
-
-    # Fetch page data
-    page_result = notion_api().get_page(page_id, nil, [])
-    Logger.debug("Page fetch result: #{inspect(page_result)}")
-
-    # Check if this is a workspace-level page
-    {is_workspace_page, page_data} =
-      case page_result do
-        {:ok, page} -> {workspace_level_page?(page), page}
-        _ -> {false, nil}
-      end
-
-    if is_workspace_page do
-      Logger.warning("Page #{page_id} is a workspace-level page which cannot be archived via API")
-    end
-
-    # First, do a fast check for obvious PII in the page title
-    title_pii_check = if page_data, do: check_title_for_obvious_pii(page_data), else: false
-
-    case title_pii_check do
-      {:pii_detected, true, categories} ->
-        # We found obvious PII in the title, no need for further checks
-        Logger.warning("PII detected in Notion page title",
-          page_id: page_id,
-          user_id: user_id,
-          categories: categories
-        )
-
-        if is_workspace_page do
-          Logger.warning("Skipping archiving for workspace-level page #{page_id}")
-          :ok
-        else
-          archive_page(page_id)
-        end
-
-      _ ->
-        # No obvious PII in title, proceed with full analysis
-        process_page_content(page_id, user_id, page_result, is_workspace_page)
-    end
-  rescue
-    error ->
-      Logger.error("Unexpected error in process_page: #{Exception.message(error)}",
-        page_id: page_id,
-        error: inspect(error),
-        stacktrace: inspect(__STACKTRACE__)
-      )
-
-      {:error, "Unexpected error: #{Exception.message(error)}"}
-  end
-
-  # Process full page content after initial title check doesn't find PII
-  defp process_page_content(page_id, user_id, page_result, is_workspace_page) do
-    # Fetch blocks data
-    blocks_result = fetch_blocks(page_id, page_result)
-    Logger.debug("Blocks fetch result: #{inspect(blocks_result)}")
-
-    # Process any child pages
-    process_child_pages(blocks_result, page_id, user_id)
-
-    # Extract content and detect PII
-    with {:ok, content} <- extract_page_content(page_result, blocks_result),
-         {:ok, pii_result} <- detect_pii_in_content(content) do
-      # Handle PII result
-      handle_pii_result(pii_result, page_id, user_id, is_workspace_page)
-    else
-      {:error, reason} = error ->
-        Logger.error("Error processing Notion page: #{inspect(reason)}",
-          page_id: page_id,
-          user_id: user_id,
-          error: reason
-        )
-
-        error
-    end
-  end
-
-  # Helper to fetch blocks for a page
-  defp fetch_blocks(page_id, page_result) do
-    case page_result do
-      {:ok, _} -> notion_api().get_blocks(page_id, nil, [])
-      error -> error
-    end
-  end
-
-  # Extract and process any child pages
-  defp process_child_pages(blocks_result, page_id, user_id) do
-    child_pages =
-      case blocks_result do
-        {:ok, blocks} -> get_child_pages_from_blocks(blocks)
-        _ -> []
-      end
-
-    # Process child pages first if any exist
-    if length(child_pages) > 0 do
-      Logger.info(
-        "Page #{page_id} contains #{length(child_pages)} child pages. Processing children first."
-      )
-
-      # Process each child page recursively
-      Enum.each(child_pages, fn child_id ->
-        Logger.debug("Processing child page #{child_id} of parent #{page_id}")
-        process_page(child_id, user_id)
-      end)
-    end
-  end
-
-  # Extract content from page and blocks
-  defp extract_page_content(page_result, blocks_result) do
-    case {page_result, blocks_result} do
-      {{:ok, page}, {:ok, blocks}} ->
-        # Get nested blocks for any blocks with children
-        blocks_with_nested = fetch_nested_blocks(blocks)
-        notion_module().extract_content_from_page(page, blocks_with_nested)
-
-      {{:error, _reason} = error, _} -> error
-      {_, {:error, _reason} = error} -> error
-    end
-  end
-
-  # Recursively fetch nested blocks for blocks with children
-  defp fetch_nested_blocks(blocks) do
-    Logger.debug("Fetching nested blocks from #{length(blocks)} blocks")
-
-    Enum.reduce(blocks, [], fn block, acc ->
-      # Process this block
-      current_block =
-        if block["has_children"] == true && block["type"] != "child_page" do
-          # Fetch children blocks
-          Logger.debug("Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}")
-          case notion_api().get_blocks(block["id"], nil, []) do
-            {:ok, child_blocks} ->
-              Logger.debug("Found #{length(child_blocks)} child blocks for block id: #{block["id"]}")
-              # Recursively fetch nested blocks of children
-              nested_child_blocks = fetch_nested_blocks(child_blocks)
-              # Return this block with its nested blocks
-              Map.put(block, "children", nested_child_blocks)
-            {:error, reason} ->
-              Logger.warning("Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}")
-              # On error, keep the original block
-              block
-            unexpected ->
-              Logger.warning("Unexpected response when fetching child blocks: #{inspect(unexpected)}")
-              block
-          end
-        else
-          block
-        end
-
-      # Add the processed block to the accumulator
-      [current_block | acc]
-    end)
-    |> Enum.reverse()
-  end
-
-  # Detect PII in the extracted content
-  defp detect_pii_in_content(content) do
-    # Log content sample for debugging
-    content_preview =
-      if String.length(content) > 100, do: String.slice(content, 0, 100) <> "...", else: content
-
-    Logger.debug("Content preview: #{content_preview}")
-
-    # Prepare input for detector
-    detector_input = %{
-      text: content,
-      attachments: [],
-      files: []
-    }
-
-    Logger.debug("Sending to detector with input structure: #{inspect(detector_input)}")
-
-    # Call detect_pii with the properly structured input and empty opts
-    pii_result = detector().detect_pii(detector_input, [])
-    Logger.debug("PII detection result: #{inspect(pii_result)}")
-
-    case pii_result do
-      {:pii_detected, _has_pii, _categories} = result -> {:ok, result}
-      error -> {:error, "PII detection error: #{inspect(error)}"}
-    end
-  end
-
-  # Handle the PII detection result
-  defp handle_pii_result({:pii_detected, true, categories}, page_id, user_id, is_workspace_page) do
-    # PII detected, archive the page (skip if it's a workspace-level page)
-    Logger.warning("PII detected in Notion page",
-      page_id: page_id,
-      user_id: user_id,
-      categories: categories
-    )
-
-    if is_workspace_page do
-      Logger.warning("Skipping archiving for workspace-level page #{page_id}")
-      :ok
-    else
-      archive_page(page_id)
-    end
-  end
-
-  defp handle_pii_result({:pii_detected, false, _}, page_id, _user_id, _is_workspace_page) do
-    Logger.info("No PII detected in Notion page", page_id: page_id)
-    :ok
-  end
-
-  # Determines if a page is at the workspace level (can't be archived via API)
-  defp workspace_level_page?(page) do
-    case get_in(page, ["parent", "type"]) do
-      "workspace" -> true
-      _ -> false
-    end
-  end
-
-  # Helper function to extract child page IDs from blocks
-  defp get_child_pages_from_blocks(blocks) do
-    blocks
-    |> Enum.filter(fn block ->
-      block["type"] == "child_page" ||
-        (block["has_children"] == true && block["type"] != "column" &&
-           block["type"] != "column_list")
-    end)
-    |> Enum.map(fn block -> block["id"] end)
-  end
-
-  # Archive a page that contains PII
-  defp archive_page(page_id) do
-    Logger.info("Archiving Notion page with PII: #{page_id}")
-
-    archive_result = notion_module().archive_content(page_id)
-    Logger.debug("Archive result: #{inspect(archive_result)}")
-
-    case archive_result do
-      {:ok, result} ->
-        Logger.info("Successfully archived Notion page: #{page_id}, response: #{inspect(result)}")
-        :ok
-
-      {:error, "API error: 400"} ->
-        # This is likely a workspace-level page which can't be archived via API
-        Logger.warning(
-          "Could not archive page #{page_id}, likely a workspace-level page which can't be archived via API"
-        )
-
-        # Return :ok since we've detected and logged the issue
-        :ok
-
-      {:error, reason} when is_binary(reason) ->
-        # Check if this appears to be a workspace-level page error
-        if String.contains?(reason, "workspace") do
-          Logger.warning(
-            "Could not archive page #{page_id}: #{reason}. This appears to be a workspace-level page."
-          )
-
-          :ok
-        else
-          Logger.error("Failed to archive Notion page: #{reason}", page_id: page_id)
-          {:error, reason}
-        end
-
-      {:error, reason} ->
-        Logger.error("Failed to archive Notion page: #{inspect(reason)}", page_id: page_id)
-        {:error, reason}
-    end
-  end
-
-  # Helper functions to extract data from event
-  defp get_page_id_from_event(%{"page" => %{"id" => page_id}}) when is_binary(page_id) do
-    Logger.debug("Extracted page_id from page.id: #{page_id}")
-    page_id
-  end
-
-  defp get_page_id_from_event(%{"page_id" => page_id}) when is_binary(page_id) do
-    Logger.debug("Extracted page_id from page_id field: #{page_id}")
-    page_id
-  end
-
-  defp get_page_id_from_event(%{"entity" => %{"id" => page_id, "type" => "page"}})
-       when is_binary(page_id) do
-    Logger.debug("Extracted page_id from entity.id: #{page_id}")
-    page_id
-  end
-
-  defp get_page_id_from_event(event) do
-    Logger.warning("Could not extract page_id from event: #{inspect(event)}")
-    nil
-  end
-
-  defp get_user_id_from_event(%{"user" => %{"id" => user_id}}) when is_binary(user_id) do
-    Logger.debug("Extracted user_id from user.id: #{user_id}")
-    user_id
-  end
-
-  defp get_user_id_from_event(%{"user_id" => user_id}) when is_binary(user_id) do
-    Logger.debug("Extracted user_id from user_id field: #{user_id}")
-    user_id
-  end
-
-  defp get_user_id_from_event(%{"authors" => [%{"id" => user_id} | _]}) when is_binary(user_id) do
-    Logger.debug("Extracted user_id from authors array: #{user_id}")
-    user_id
-  end
-
-  defp get_user_id_from_event(event) do
-    Logger.warning("Could not extract user_id from event: #{inspect(event)}")
-    nil
-  end
-
-  # Access configured implementations for easier testing
-  defp detector, do: Application.get_env(:pii_detector, :pii_detector_module, @default_detector)
-
-  defp notion_module,
-    do: Application.get_env(:pii_detector, :notion_module, @default_notion_module)
-
-  defp notion_api, do: Application.get_env(:pii_detector, :notion_api_module, @default_notion_api)
-
-  # Fast path check for obvious PII in page title
-  defp check_title_for_obvious_pii(page) do
-    title = get_page_title(page)
-
-    if title do
-      # Basic patterns for common PII
-      email_pattern = ~r/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/
-      ssn_pattern = ~r/\b\d{3}[-.]?\d{2}[-.]?\d{4}\b/
-      phone_pattern = ~r/\b(\+\d{1,2}\s?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/
-      credit_card_pattern = ~r/\b(?:\d{4}[-\s]?){3}\d{4}\b|\b\d{16}\b/
-
-      cond do
-        Regex.match?(email_pattern, title) ->
-          {:pii_detected, true, ["email"]}
-
-        Regex.match?(ssn_pattern, title) ->
-          {:pii_detected, true, ["ssn"]}
-
-        Regex.match?(phone_pattern, title) ->
-          {:pii_detected, true, ["phone"]}
-
-        Regex.match?(credit_card_pattern, title) ->
-          {:pii_detected, true, ["credit_card"]}
-
-        true ->
-          false
-      end
-    else
-      false
-    end
-  end
-
-  # Helper to extract page title
-  defp get_page_title(page) do
-    case get_in(page, ["properties", "title", "title"]) do
-      nil ->
-        nil
-
-      rich_text_list when is_list(rich_text_list) ->
-        rich_text_list
-        |> Enum.map(fn item -> get_in(item, ["plain_text"]) end)
-        |> Enum.filter(&(&1 != nil))
-        |> Enum.join("")
-    end
   end
 end
