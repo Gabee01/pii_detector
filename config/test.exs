@@ -37,11 +37,13 @@ config :phoenix_live_view,
 config :pii_detector, :start_slack_bot, false
 
 # Configure Oban to use testing mode in test environment
-config :pii_detector, Oban, testing: :manual
+config :pii_detector, Oban, testing: :manual, repo: PIIDetector.Repo
 
 # Configure mocks for testing
 config :pii_detector, :pii_detector_module, PIIDetector.DetectorMock
 config :pii_detector, :slack_api_module, PIIDetector.Platform.Slack.APIMock
+config :pii_detector, :notion_api_module, PIIDetector.Platform.Notion.APIMock
+config :pii_detector, :notion_module, PIIDetector.Platform.NotionMock
 
 # Configure AI service for testing
 config :pii_detector, :ai_service, PIIDetector.AI.AIServiceMock
@@ -52,3 +54,10 @@ config :pii_detector, :claude_model, "claude-3-haiku-20240307"
 
 # Set up Anthropic client mock
 config :pii_detector, :anthropic_client, PIIDetector.AI.Anthropic.MockClient
+
+# Configure Notion API for testing
+config :pii_detector, PIIDetector.Platform.Notion,
+  api_token: "test-notion-api-token",
+  notion_version: "2022-06-28",
+  base_url: "https://api.notion.com/v1",
+  webhook_signing_secret: "test-notion-webhook-secret"

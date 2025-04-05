@@ -13,6 +13,12 @@ defmodule PIIDetector.TestMocks do
   # Mock for the Slack API
   defmock(PIIDetector.Platform.Slack.APIMock, for: PIIDetector.Platform.Slack.APIBehaviour)
 
+  # Mock for the Notion Platform
+  defmock(PIIDetector.Platform.NotionMock, for: PIIDetector.Platform.Notion.Behaviour)
+
+  # Mock for the Notion API
+  defmock(PIIDetector.Platform.Notion.APIMock, for: PIIDetector.Platform.Notion.APIBehaviour)
+
   # Mock for the AI service
   defmock(PIIDetector.AI.AIServiceMock, for: PIIDetector.AI.Behaviour)
 

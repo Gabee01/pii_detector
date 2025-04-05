@@ -71,6 +71,13 @@ config :pii_detector, :claude,
   max_tokens: 1024,
   temperature: 0
 
+# Configure Notion API
+config :pii_detector, PIIDetector.Platform.Notion,
+  api_token: System.get_env("NOTION_API_TOKEN"),
+  notion_version: "2022-06-28",
+  base_url: "https://api.notion.com/v1",
+  webhook_signing_secret: System.get_env("NOTION_WEBHOOK_SECRET")
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
