@@ -203,7 +203,10 @@ defmodule PIIDetector.Platform.Notion do
         success
 
       {:error, reason} = error ->
-        Logger.error("Failed to archive Notion content: #{content_id}, reason: #{inspect(reason)}")
+        Logger.error(
+          "Failed to archive Notion content: #{content_id}, reason: #{inspect(reason)}"
+        )
+
         error
     end
   end
@@ -245,12 +248,18 @@ defmodule PIIDetector.Platform.Notion do
             success
 
           {:error, reason} = error ->
-            Logger.error("Failed to notify user about PII in Notion content: #{user_id}, reason: #{inspect(reason)}")
+            Logger.error(
+              "Failed to notify user about PII in Notion content: #{user_id}, reason: #{inspect(reason)}"
+            )
+
             error
         end
 
       {:error, reason} = error ->
-        Logger.error("Failed to find Slack user for Notion user: #{user_id}, reason: #{inspect(reason)}")
+        Logger.error(
+          "Failed to find Slack user for Notion user: #{user_id}, reason: #{inspect(reason)}"
+        )
+
         error
     end
   end
@@ -262,7 +271,8 @@ defmodule PIIDetector.Platform.Notion do
       %{"title" => rich_text_list} when is_list(rich_text_list) ->
         Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
 
@@ -397,7 +407,7 @@ defmodule PIIDetector.Platform.Notion do
   defp format_notification_message(_content, detected_pii) do
     # In a real implementation, use the message formatter
     # This is just a simplified example
-    categories = Enum.map_join(Map.keys(detected_pii), ", ", &(&1))
+    categories = Enum.map_join(Map.keys(detected_pii), ", ", & &1)
 
     """
     *PII Detected in Your Notion Content*

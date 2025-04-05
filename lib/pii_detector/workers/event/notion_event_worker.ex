@@ -15,7 +15,9 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   # Access the configured implementations at runtime to support testing
   defp detector, do: Application.get_env(:pii_detector, :pii_detector_module, @default_detector)
   defp notion_api, do: Application.get_env(:pii_detector, :notion_api_module, @default_notion_api)
-  defp notion_module, do: Application.get_env(:pii_detector, :notion_module, @default_notion_module)
+
+  defp notion_module,
+    do: Application.get_env(:pii_detector, :notion_module, @default_notion_module)
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: args}) do
@@ -41,23 +43,33 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
   # Process event based on its type
   defp process_by_event_type("page.created", page_id, _database_id, user_id) do
-    if page_id, do: process_page_creation(page_id, user_id), else: log_missing_id("page_id", "page.created")
+    if page_id,
+      do: process_page_creation(page_id, user_id),
+      else: log_missing_id("page_id", "page.created")
   end
 
   defp process_by_event_type("page.updated", page_id, _database_id, user_id) do
-    if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", "page.updated")
+    if page_id,
+      do: process_page_update(page_id, user_id),
+      else: log_missing_id("page_id", "page.updated")
   end
 
   defp process_by_event_type("page.content_updated", page_id, _database_id, user_id) do
-    if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", "page.content_updated")
+    if page_id,
+      do: process_page_update(page_id, user_id),
+      else: log_missing_id("page_id", "page.content_updated")
   end
 
   defp process_by_event_type("page.properties_updated", page_id, _database_id, user_id) do
-    if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", "page.properties_updated")
+    if page_id,
+      do: process_page_update(page_id, user_id),
+      else: log_missing_id("page_id", "page.properties_updated")
   end
 
   defp process_by_event_type("database.edited", _page_id, database_id, user_id) do
-    if database_id, do: process_database_edit(database_id, user_id), else: log_missing_id("database_id", "database.edited")
+    if database_id,
+      do: process_database_edit(database_id, user_id),
+      else: log_missing_id("database_id", "database.edited")
   end
 
   defp process_by_event_type(nil, _page_id, _database_id, _user_id) do
@@ -92,6 +104,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
           user_id: user_id,
           error: reason
         )
+
         {:error, reason}
     end
   end
@@ -113,6 +126,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
           user_id: user_id,
           error: reason
         )
+
         {:error, reason}
     end
   end
@@ -120,31 +134,40 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   # Helper functions for fetching data with logging
   defp fetch_page(page_id) do
     Logger.debug("Fetching page data from Notion API for page: #{page_id}")
+
     case notion_api().get_page(page_id, nil, []) do
       {:ok, _page} = success ->
         Logger.debug("Successfully fetched page data")
         success
-      error -> error
+
+      error ->
+        error
     end
   end
 
   defp fetch_blocks(page_id) do
     Logger.debug("Fetching blocks for page: #{page_id}")
+
     case notion_api().get_blocks(page_id, nil, []) do
       {:ok, _blocks} = success ->
         Logger.debug("Successfully fetched blocks")
         success
-      error -> error
+
+      error ->
+        error
     end
   end
 
   defp extract_content(page, blocks) do
     Logger.debug("Extracting content from page and blocks")
+
     case notion_module().extract_content_from_page(page, blocks) do
       {:ok, content} = success ->
         Logger.debug("Successfully extracted content: #{String.slice(content, 0, 100)}...")
         success
-      error -> error
+
+      error ->
+        error
     end
   end
 
@@ -152,7 +175,6 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
     # Get database entries
     with {:ok, entries} <- notion_api().get_database_entries(database_id, nil, []),
          {:ok, content} <- notion_module().extract_content_from_database(entries) do
-
       pii_result = detector().detect_pii(content, %{})
 
       case pii_result do
@@ -183,6 +205,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
           user_id: user_id,
           error: reason
         )
+
         {:error, reason}
     end
   end
@@ -303,7 +326,9 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
     case notion_module().archive_content(content_id) do
       {:ok, result} ->
-        Logger.info("Successfully archived Notion content: #{content_id}, result: #{inspect(result)}")
+        Logger.info(
+          "Successfully archived Notion content: #{content_id}, result: #{inspect(result)}"
+        )
 
         # Successfully archived, now notify the user
         Logger.debug("Attempting to notify user #{user_id} about PII detection")
@@ -315,6 +340,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
               user_id: user_id,
               notification_result: notification_result
             )
+
             :ok
 
           {:error, reason} ->
@@ -323,6 +349,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
               user_id: user_id,
               error: reason
             )
+
             # Continue despite notification failure
             :ok
         end
@@ -333,6 +360,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
           user_id: user_id,
           error: reason
         )
+
         {:error, reason}
     end
   end

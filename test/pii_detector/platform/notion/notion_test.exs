@@ -291,7 +291,8 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
         {:error, "Notification failed"}
       end)
 
-      assert {:error, "Notification failed"} = Notion.notify_content_creator(user_id, content, detected_pii)
+      assert {:error, "Notification failed"} =
+               Notion.notify_content_creator(user_id, content, detected_pii)
     end
   end
 end

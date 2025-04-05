@@ -38,9 +38,10 @@ defmodule PIIDetectorWeb.API.WebhookController do
           Logger.info("Queueing Notion event: #{event_type}")
 
           # Convert string keys to atoms for compatibility
-          {:ok, _job} = params
-          |> event_worker().new()
-          |> Oban.insert()
+          {:ok, _job} =
+            params
+            |> event_worker().new()
+            |> Oban.insert()
 
           # Return success
           json(conn, %{status: "ok"})

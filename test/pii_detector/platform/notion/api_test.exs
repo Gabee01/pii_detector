@@ -20,15 +20,17 @@ defmodule PIIDetector.Platform.Notion.APITest do
       # Set up a stub
       Req.Test.stub(stub_name, fn conn ->
         assert conn.request_path == "/v1/pages/#{page_id}"
+
         assert Enum.any?(conn.req_headers, fn {key, value} ->
-          key == "authorization" && value == "Bearer #{token}"
-        end)
+                 key == "authorization" && value == "Bearer #{token}"
+               end)
 
         Req.Test.json(conn, %{"id" => page_id, "title" => "Test Page"})
       end)
 
       # Call the API with the test stub in opts
-      assert {:ok, %{"id" => ^page_id}} = API.get_page(page_id, token, plug: {Req.Test, stub_name})
+      assert {:ok, %{"id" => ^page_id}} =
+               API.get_page(page_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles error responses" do
@@ -44,7 +46,9 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:error, "Page not found or integration lacks access - verify integration is added to page"} = API.get_page(page_id, token, plug: {Req.Test, stub_name})
+      assert {:error,
+              "Page not found or integration lacks access - verify integration is added to page"} =
+               API.get_page(page_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles connection errors" do
@@ -61,10 +65,11 @@ defmodule PIIDetector.Platform.Notion.APITest do
 
       # Call the API with the test stub in opts and override retry options
       assert {:error, %Req.TransportError{reason: :timeout}} =
-        API.get_page(page_id, token, [
-          plug: {Req.Test, stub_name},
-          retry: false # Disable retries for this test to avoid timeouts
-        ])
+               API.get_page(page_id, token,
+                 plug: {Req.Test, stub_name},
+                 # Disable retries for this test to avoid timeouts
+                 retry: false
+               )
     end
   end
 
@@ -72,7 +77,11 @@ defmodule PIIDetector.Platform.Notion.APITest do
     test "returns block data when successful" do
       page_id = "test_page_id"
       token = "test_token"
-      blocks = [%{"id" => "block1", "type" => "paragraph"}, %{"id" => "block2", "type" => "heading_1"}]
+
+      blocks = [
+        %{"id" => "block1", "type" => "paragraph"},
+        %{"id" => "block2", "type" => "heading_1"}
+      ]
 
       # Create a stub name for this test
       stub_name = :"NotionAPI#{:erlang.unique_integer([:positive])}"
@@ -101,7 +110,8 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:error, "API error: 403"} = API.get_blocks(page_id, token, plug: {Req.Test, stub_name})
+      assert {:error, "API error: 403"} =
+               API.get_blocks(page_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles connection errors" do
@@ -118,10 +128,10 @@ defmodule PIIDetector.Platform.Notion.APITest do
 
       # Call the API with retry disabled to avoid timeouts
       assert {:error, %Req.TransportError{reason: :timeout}} =
-        API.get_blocks(page_id, token, [
-          plug: {Req.Test, stub_name},
-          retry: false
-        ])
+               API.get_blocks(page_id, token,
+                 plug: {Req.Test, stub_name},
+                 retry: false
+               )
     end
   end
 
@@ -143,7 +153,8 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:ok, ^entries} = API.get_database_entries(database_id, token, plug: {Req.Test, stub_name})
+      assert {:ok, ^entries} =
+               API.get_database_entries(database_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles error responses" do
@@ -159,7 +170,8 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:error, "API error: 400"} = API.get_database_entries(database_id, token, plug: {Req.Test, stub_name})
+      assert {:error, "API error: 400"} =
+               API.get_database_entries(database_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles connection errors" do
@@ -176,10 +188,10 @@ defmodule PIIDetector.Platform.Notion.APITest do
 
       # Call the API with retry disabled to avoid timeouts
       assert {:error, %Req.TransportError{reason: :timeout}} =
-        API.get_database_entries(database_id, token, [
-          plug: {Req.Test, stub_name},
-          retry: false
-        ])
+               API.get_database_entries(database_id, token,
+                 plug: {Req.Test, stub_name},
+                 retry: false
+               )
     end
   end
 
@@ -203,7 +215,8 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:ok, %{"archived" => true}} = API.archive_page(page_id, token, plug: {Req.Test, stub_name})
+      assert {:ok, %{"archived" => true}} =
+               API.archive_page(page_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles error responses" do
@@ -219,7 +232,8 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:error, "Authentication failed - invalid API token"} = API.archive_page(page_id, token, plug: {Req.Test, stub_name})
+      assert {:error, "Authentication failed - invalid API token"} =
+               API.archive_page(page_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles connection errors" do
@@ -236,10 +250,10 @@ defmodule PIIDetector.Platform.Notion.APITest do
 
       # Call the API with retry disabled to avoid timeouts
       assert {:error, %Req.TransportError{reason: :timeout}} =
-        API.archive_page(page_id, token, [
-          plug: {Req.Test, stub_name},
-          retry: false
-        ])
+               API.archive_page(page_id, token,
+                 plug: {Req.Test, stub_name},
+                 retry: false
+               )
     end
   end
 end

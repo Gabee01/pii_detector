@@ -40,17 +40,18 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       end)
 
       expect(APIMock, :get_blocks, fn "test_page_id", _token, _opts ->
-        {:ok, [
-          %{
-            "type" => "paragraph",
-            "paragraph" => %{
-              "rich_text" => [
-                %{"plain_text" => "This is a test paragraph with content."}
-              ]
-            },
-            "has_children" => false
-          }
-        ]}
+        {:ok,
+         [
+           %{
+             "type" => "paragraph",
+             "paragraph" => %{
+               "rich_text" => [
+                 %{"plain_text" => "This is a test paragraph with content."}
+               ]
+             },
+             "has_children" => false
+           }
+         ]}
       end)
 
       # Mock detector to find PII
@@ -80,17 +81,18 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       end)
 
       expect(APIMock, :get_blocks, fn "test_page_id", _token, _opts ->
-        {:ok, [
-          %{
-            "type" => "paragraph",
-            "paragraph" => %{
-              "rich_text" => [
-                %{"plain_text" => "This is a test paragraph with content."}
-              ]
-            },
-            "has_children" => false
-          }
-        ]}
+        {:ok,
+         [
+           %{
+             "type" => "paragraph",
+             "paragraph" => %{
+               "rich_text" => [
+                 %{"plain_text" => "This is a test paragraph with content."}
+               ]
+             },
+             "has_children" => false
+           }
+         ]}
       end)
 
       # Mock detector to NOT find PII
@@ -119,20 +121,21 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       # Mock the Notion API responses with the updated signature
       expect(APIMock, :get_database_entries, fn
         ^test_db_id, _, _ ->
-          {:ok, [
-            %{
-              "properties" => %{
-                "Name" => %{
-                  "type" => "title",
-                  "title" => [%{"plain_text" => "Test Entry"}]
-                },
-                "Description" => %{
-                  "type" => "rich_text",
-                  "rich_text" => [%{"plain_text" => "This is a test entry."}]
-                }
-              }
-            }
-          ]}
+          {:ok,
+           [
+             %{
+               "properties" => %{
+                 "Name" => %{
+                   "type" => "title",
+                   "title" => [%{"plain_text" => "Test Entry"}]
+                 },
+                 "Description" => %{
+                   "type" => "rich_text",
+                   "rich_text" => [%{"plain_text" => "This is a test entry."}]
+                 }
+               }
+             }
+           ]}
       end)
 
       # Mock detector to NOT find PII

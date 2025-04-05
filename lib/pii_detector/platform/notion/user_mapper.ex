@@ -86,7 +86,10 @@ defmodule PIIDetector.Platform.Notion.UserMapper do
 
     # Placeholder for database storage
     # This is where actual storage logic would go
-    Logger.info("Storing user mapping: Notion user #{notion_user_id} -> Slack user #{slack_user_id}")
+    Logger.info(
+      "Storing user mapping: Notion user #{notion_user_id} -> Slack user #{slack_user_id}"
+    )
+
     :ok
   end
 
@@ -98,7 +101,8 @@ defmodule PIIDetector.Platform.Notion.UserMapper do
     case notion_user_id do
       "notion_user_1" -> "slack_user_1"
       "notion_user_2" -> "slack_user_2"
-      _ -> "default_slack_user" # For demo purposes, return a default user
+      # For demo purposes, return a default user
+      _ -> "default_slack_user"
     end
   end
 

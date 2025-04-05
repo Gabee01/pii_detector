@@ -33,8 +33,12 @@ defmodule PIIDetector.Platform.Notion.API do
           {:error, "Authentication failed - invalid API token"}
 
         {:ok, %{status: 404, body: body}} ->
-          Logger.error("Page not found or integration lacks access to page: #{page_id}, response: #{inspect(body)}")
-          {:error, "Page not found or integration lacks access - verify integration is added to page"}
+          Logger.error(
+            "Page not found or integration lacks access to page: #{page_id}, response: #{inspect(body)}"
+          )
+
+          {:error,
+           "Page not found or integration lacks access - verify integration is added to page"}
 
         {:ok, %{status: status, body: body}} ->
           Logger.error("Error fetching Notion page: status=#{status}, body=#{inspect(body)}")
@@ -77,8 +81,12 @@ defmodule PIIDetector.Platform.Notion.API do
           {:error, "Authentication failed - invalid API token"}
 
         {:ok, %{status: 404, body: body}} ->
-          Logger.error("Page not found or integration lacks access to blocks: #{page_id}, response: #{inspect(body)}")
-          {:error, "Page not found or integration lacks access - verify integration is added to page"}
+          Logger.error(
+            "Page not found or integration lacks access to blocks: #{page_id}, response: #{inspect(body)}"
+          )
+
+          {:error,
+           "Page not found or integration lacks access - verify integration is added to page"}
 
         {:ok, %{status: status, body: body}} ->
           Logger.error("Error fetching Notion blocks: status=#{status}, body=#{inspect(body)}")
@@ -121,7 +129,10 @@ defmodule PIIDetector.Platform.Notion.API do
           {:error, "Authentication failed - invalid API token"}
 
         {:ok, %{status: status, body: body}} ->
-          Logger.error("Error fetching Notion database entries: status=#{status}, body=#{inspect(body)}")
+          Logger.error(
+            "Error fetching Notion database entries: status=#{status}, body=#{inspect(body)}"
+          )
+
           {:error, "API error: #{status}"}
 
         {:error, reason} ->
@@ -129,7 +140,10 @@ defmodule PIIDetector.Platform.Notion.API do
           {:error, reason}
       end
     else
-      Logger.error("No Notion API token available - cannot fetch database entries: #{database_id}")
+      Logger.error(
+        "No Notion API token available - cannot fetch database entries: #{database_id}"
+      )
+
       {:error, "Missing API token"}
     end
   end
@@ -191,16 +205,20 @@ defmodule PIIDetector.Platform.Notion.API do
     config = if is_list(config), do: Map.new(config), else: config
 
     # Try to get token from both possible environment variables if it's missing in config
-    api_token = Map.get(config, :api_token) ||
-                System.get_env("NOTION_API_TOKEN") ||
-                System.get_env("NOTION_API_KEY")
+    api_token =
+      Map.get(config, :api_token) ||
+        System.get_env("NOTION_API_TOKEN") ||
+        System.get_env("NOTION_API_KEY")
 
     if api_token do
       token_preview = String.slice(api_token, 0, 4) <> "..." <> String.slice(api_token, -4, 4)
       Logger.debug("Using Notion API token: #{token_preview}")
       Map.put(config, :api_token, api_token)
     else
-      Logger.error("Notion API token not found! Check environment variables NOTION_API_TOKEN or NOTION_API_KEY")
+      Logger.error(
+        "Notion API token not found! Check environment variables NOTION_API_TOKEN or NOTION_API_KEY"
+      )
+
       Map.put(config, :api_token, nil)
     end
   end

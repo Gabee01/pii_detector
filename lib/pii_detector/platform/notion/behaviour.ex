@@ -15,6 +15,10 @@ defmodule PIIDetector.Platform.Notion.Behaviour do
   @callback archive_content(content_id :: String.t()) ::
               {:ok, map()} | {:error, any()}
 
-  @callback notify_content_creator(user_id :: String.t(), content :: String.t(), detected_pii :: map()) ::
+  @callback notify_content_creator(
+              user_id :: String.t(),
+              content :: String.t(),
+              detected_pii :: map()
+            ) ::
               {:ok, any()} | {:error, any()}
 end

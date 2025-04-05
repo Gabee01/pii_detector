@@ -57,7 +57,8 @@ defmodule PIIDetector.Platform.Notion.MessageFormatter do
         "type" => "section",
         "text" => %{
           "type" => "mrkdwn",
-          "text" => "Our system has detected potential PII in your Notion content: *#{content_title}*"
+          "text" =>
+            "Our system has detected potential PII in your Notion content: *#{content_title}*"
         }
       },
       %{
@@ -71,7 +72,8 @@ defmodule PIIDetector.Platform.Notion.MessageFormatter do
         "type" => "section",
         "text" => %{
           "type" => "mrkdwn",
-          "text" => "The content has been archived to protect sensitive information. Please review and remove any personal data before restoring."
+          "text" =>
+            "The content has been archived to protect sensitive information. Please review and remove any personal data before restoring."
         }
       },
       %{
