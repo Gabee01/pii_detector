@@ -115,7 +115,8 @@ defmodule PIIDetector.Platform.Notion do
   rescue
     error ->
       Logger.error("Failed to extract content from Notion page: #{inspect(error)}")
-      {:ok, ""}  # Return empty string on error for graceful degradation
+      # Return empty string on error for graceful degradation
+      {:ok, ""}
   end
 
   @doc """
@@ -151,7 +152,8 @@ defmodule PIIDetector.Platform.Notion do
   rescue
     error ->
       Logger.error("Failed to extract content from Notion blocks: #{inspect(error)}")
-      {:ok, ""}  # Return empty string on error for graceful degradation
+      # Return empty string on error for graceful degradation
+      {:ok, ""}
   end
 
   @doc """
@@ -187,7 +189,8 @@ defmodule PIIDetector.Platform.Notion do
   rescue
     error ->
       Logger.error("Failed to extract content from Notion database: #{inspect(error)}")
-      {:ok, ""}  # Return empty string on error for graceful degradation
+      # Return empty string on error for graceful degradation
+      {:ok, ""}
   end
 
   @doc """
@@ -257,7 +260,10 @@ defmodule PIIDetector.Platform.Notion do
       success
     else
       {:error, reason} = error ->
-        Logger.error("Failed to notify user about PII in Notion content: #{user_id}, reason: #{inspect(reason)}")
+        Logger.error(
+          "Failed to notify user about PII in Notion content: #{user_id}, reason: #{inspect(reason)}"
+        )
+
         error
     end
   end
