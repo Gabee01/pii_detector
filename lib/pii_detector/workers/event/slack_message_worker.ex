@@ -8,7 +8,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
   require Logger
 
   # Use the actual modules for normal code, but allow for injection in tests
-  @detector PIIDetector.Detector.PIIDetector
+  @detector PIIDetector.Detector
   @api_module PIIDetector.Platform.Slack.API
 
   # Get the actual detector module (allows for test mocking)
@@ -44,10 +44,18 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
       "token" => token
     } = args
 
+    # Process files if they exist by adding token for authorization
+    processed_files =
+      if args["files"] && args["files"] != [] do
+        process_files(args["files"], token)
+      else
+        []
+      end
+
     # Extract message content for PII detection
     message_content = %{
       text: args["text"] || "",
-      files: args["files"] || [],
+      files: processed_files,
       attachments: args["attachments"] || []
     }
 
@@ -58,7 +66,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
     )
 
     # Detect PII in the message
-    case detector().detect_pii(message_content) do
+    case detector().detect_pii(message_content, %{}) do
       {:pii_detected, true, categories} ->
         Logger.info("Detected PII in categories: #{inspect(categories)}",
           event_type: "pii_detected",
@@ -93,5 +101,14 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
 
         :ok
     end
+  end
+
+  # Process files to ensure they have necessary authorization information
+  defp process_files(files, token) do
+    Enum.map(files, fn file ->
+      # Add token to file object if not already present
+      # This ensures authorization when downloading files
+      Map.put_new(file, "token", token)
+    end)
   end
 end

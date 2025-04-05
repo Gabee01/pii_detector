@@ -8,7 +8,7 @@ defmodule PIIDetector.Platform.Slack.Bot do
   alias PIIDetector.Workers.Event.SlackMessageWorker
 
   @impl true
-  def handle_event("message", %{"subtype" => _}, _bot) do
+  def handle_event("message", %{"subtype" => subtype}, _bot) when subtype != "file_share" do
     # Ignore message edits, deletions, etc.
     :ok
   end

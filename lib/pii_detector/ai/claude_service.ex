@@ -42,6 +42,46 @@ defmodule PIIDetector.AI.ClaudeService do
     end
   end
 
+  @doc """
+  Analyzes text and visual content for personally identifiable information (PII)
+  using Claude's multimodal API capabilities.
+  """
+  @impl true
+  def analyze_pii_multimodal(text, image_data, pdf_data) do
+    # Initialize Anthropix client with API key
+    client = anthropix_module().init(get_api_key())
+
+    # Build content array with text and images/PDFs for multimodal request
+    content = build_multimodal_content(text, image_data, pdf_data)
+
+    # Create the messages for Claude
+    messages = [
+      %{
+        role: "user",
+        content: content
+      }
+    ]
+
+    # Get the model name from config or environment variables
+    model = get_model_name()
+
+    # Send request to Claude through Anthropix
+    case anthropix_module().chat(client,
+           model: model,
+           messages: messages,
+           system: pii_detection_system_prompt(),
+           temperature: 0.1,
+           max_tokens: 1024
+         ) do
+      {:ok, response} ->
+        parse_claude_response(response)
+
+      {:error, reason} ->
+        Logger.error("Claude multimodal API request failed #{inspect(reason)}")
+        {:error, "Claude multimodal API request failed"}
+    end
+  end
+
   # Private helper functions
 
   defp anthropix_module do
@@ -87,6 +127,56 @@ defmodule PIIDetector.AI.ClaudeService do
     """
   end
 
+  defp build_multimodal_content(text, image_data, pdf_data) do
+    # Start with the text prompt
+    prompt_text = create_pii_detection_prompt(text)
+
+    content = [
+      %{
+        type: "text",
+        text: prompt_text
+      }
+    ]
+
+    # Add image if present
+    content = if image_data do
+      Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
+
+      content ++ [
+        %{
+          type: "image",
+          source: %{
+            type: "base64",
+            media_type: image_data.mimetype,
+            data: image_data.data
+          }
+        }
+      ]
+    else
+      content
+    end
+
+    # Add PDF if present
+    content = if pdf_data do
+      Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
+
+      content ++ [
+        %{
+          type: "document",
+          source: %{
+            type: "base64",
+            media_type: "application/pdf",
+            data: pdf_data.data
+          }
+        }
+      ]
+    else
+      content
+    end
+
+    content
+  end
+
   defp pii_detection_system_prompt do
     """
     You are a PII detection system that identifies personally identifiable information in text.
@@ -104,6 +194,13 @@ defmodule PIIDetector.AI.ClaudeService do
     - Financial account details
     - Medical information
     - Credentials (usernames/passwords)
+
+    When analyzing images or PDFs:
+    - Extract any text visible in the image/document and analyze it for PII
+    - Look for ID cards, passports, driver's licenses, or other identity documents
+    - Identify credit cards, bank statements, or other financial documents
+    - Look for handwritten personal information
+    - Detect screenshots of forms or websites containing personal information
 
     When in doubt, be conservative and mark potential PII.
     """
