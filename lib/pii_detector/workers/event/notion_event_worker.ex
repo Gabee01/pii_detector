@@ -245,10 +245,49 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   # Extract content from page and blocks
   defp extract_page_content(page_result, blocks_result) do
     case {page_result, blocks_result} do
-      {{:ok, page}, {:ok, blocks}} -> notion_module().extract_content_from_page(page, blocks)
+      {{:ok, page}, {:ok, blocks}} ->
+        # Get nested blocks for any blocks with children
+        blocks_with_nested = fetch_nested_blocks(blocks)
+        notion_module().extract_content_from_page(page, blocks_with_nested)
+
       {{:error, _reason} = error, _} -> error
       {_, {:error, _reason} = error} -> error
     end
+  end
+
+  # Recursively fetch nested blocks for blocks with children
+  defp fetch_nested_blocks(blocks) do
+    Logger.debug("Fetching nested blocks from #{length(blocks)} blocks")
+
+    Enum.reduce(blocks, [], fn block, acc ->
+      # Process this block
+      current_block =
+        if block["has_children"] == true && block["type"] != "child_page" do
+          # Fetch children blocks
+          Logger.debug("Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}")
+          case notion_api().get_blocks(block["id"], nil, []) do
+            {:ok, child_blocks} ->
+              Logger.debug("Found #{length(child_blocks)} child blocks for block id: #{block["id"]}")
+              # Recursively fetch nested blocks of children
+              nested_child_blocks = fetch_nested_blocks(child_blocks)
+              # Return this block with its nested blocks
+              Map.put(block, "children", nested_child_blocks)
+            {:error, reason} ->
+              Logger.warning("Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}")
+              # On error, keep the original block
+              block
+            unexpected ->
+              Logger.warning("Unexpected response when fetching child blocks: #{inspect(unexpected)}")
+              block
+          end
+        else
+          block
+        end
+
+      # Add the processed block to the accumulator
+      [current_block | acc]
+    end)
+    |> Enum.reverse()
   end
 
   # Detect PII in the extracted content

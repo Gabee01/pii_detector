@@ -379,7 +379,31 @@ defmodule PIIDetector.Platform.Notion do
   defp extract_text_from_block(%{"type" => type, "has_children" => _has_children} = block) do
     case Map.get(@block_handlers, type) do
       nil -> nil
-      handler -> handler.(type, block)
+      handler ->
+        result = handler.(type, block)
+
+        # Process any nested blocks if they exist
+        case Map.get(block, "children") do
+          nil ->
+            result
+          children when is_list(children) ->
+            # Recursively process nested blocks and join with parent content
+            Logger.debug("Processing #{length(children)} nested blocks for block type: #{type}")
+            nested_content = extract_content_from_blocks(children)
+            case nested_content do
+              {:ok, ""} ->
+                Logger.debug("No content extracted from nested blocks")
+                result
+              {:ok, content} ->
+                Logger.debug("Extracted content from nested blocks: #{String.slice(content, 0, 100)}#{if String.length(content) > 100, do: "...", else: ""}")
+                if result, do: "#{result}\n#{content}", else: content
+              error ->
+                Logger.warning("Error extracting content from nested blocks: #{inspect(error)}")
+                result
+            end
+          _ ->
+            result
+        end
     end
   end
 
