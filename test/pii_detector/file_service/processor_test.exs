@@ -208,47 +208,4 @@ defmodule PIIDetector.FileService.ProcessorTest do
       assert {:error, _} = Processor.prepare_file(file)
     end
   end
-
-  # Keep the legacy tests for backward compatibility, but mark them as deprecated
-  describe "process_image/2 (deprecated)" do
-    test "successfully processes an image file" do
-      # This test documents that the deprecated function still works
-      file = %{
-        "url" => "https://example.com/success.jpg",
-        "mimetype" => "image/jpeg",
-        "name" => "test_image.jpg",
-        "headers" => [{"Authorization", "Bearer test-token"}]
-      }
-
-      mock_req = fn _url, _opts ->
-        {:ok, %{status: 200, body: "fake_image_data"}}
-      end
-
-      assert {:ok, processed} = Processor.process_image(file, req_module: mock_req)
-      assert processed.mimetype == "image/jpeg"
-      assert processed.name == "test_image.jpg"
-      assert processed.data == Base.encode64("fake_image_data")
-    end
-  end
-
-  describe "process_pdf/2 (deprecated)" do
-    test "successfully processes a PDF file" do
-      # This test documents that the deprecated function still works
-      file = %{
-        "url" => "https://example.com/document.pdf",
-        "mimetype" => "application/pdf",
-        "name" => "test_doc.pdf",
-        "headers" => [{"Authorization", "Bearer test-token"}]
-      }
-
-      mock_req = fn _url, _opts ->
-        {:ok, %{status: 200, body: "fake_pdf_data"}}
-      end
-
-      assert {:ok, processed} = Processor.process_pdf(file, req_module: mock_req)
-      assert processed.mimetype == "application/pdf"
-      assert processed.name == "test_doc.pdf"
-      assert processed.data == Base.encode64("fake_pdf_data")
-    end
-  end
 end

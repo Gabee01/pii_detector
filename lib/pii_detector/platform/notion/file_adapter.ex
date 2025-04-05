@@ -55,7 +55,7 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
         "headers" => headers
       }
 
-      file_service.process_generic_file(adapted_file, opts)
+      file_service.prepare_file(adapted_file, opts)
     else
       {:error, reason} ->
         Logger.warning("Error processing Notion file: #{reason}")
@@ -83,7 +83,7 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
         "headers" => headers
       }
 
-      file_service.process_generic_file(adapted_file, opts)
+      file_service.prepare_file(adapted_file, opts)
     else
       {:error, reason} ->
         Logger.warning("Error processing Notion external file: #{reason}")

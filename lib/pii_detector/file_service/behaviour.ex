@@ -15,37 +15,4 @@ defmodule PIIDetector.FileService.Behaviour do
   Returns the file data along with metadata (mimetype, name).
   """
   @callback prepare_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
-
-  # Deprecated callbacks - kept for backward compatibility
-  # These should be removed in future versions
-
-  @doc """
-  DEPRECATED: Use prepare_file/2 instead.
-  """
-  @callback process_image(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
-
-  @doc """
-  DEPRECATED: Use prepare_file/2 instead.
-  """
-  @callback process_pdf(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
-
-  @doc """
-  DEPRECATED: Use prepare_file/2 instead.
-  """
-  @callback process_document(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
-
-  @doc """
-  DEPRECATED: Use prepare_file/2 instead.
-  """
-  @callback process_text(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
-
-  @doc """
-  DEPRECATED: Use prepare_file/2 instead.
-  """
-  @callback process_generic_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
-
-  @doc """
-  DEPRECATED: Use prepare_file/2 instead.
-  """
-  @callback process_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 end

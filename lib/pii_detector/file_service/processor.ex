@@ -58,50 +58,6 @@ defmodule PIIDetector.FileService.Processor do
     {:error, "Invalid file object: #{inspect(file)}"}
   end
 
-  # Deprecated functions - redirecting to prepare_file for backward compatibility
-
-  @impl true
-  @deprecated "Use prepare_file/2 instead"
-  def process_image(file, opts \\ []) do
-    Logger.warning("process_image/2 is deprecated, use prepare_file/2 instead")
-    prepare_file(file, opts)
-  end
-
-  @impl true
-  @deprecated "Use prepare_file/2 instead"
-  def process_pdf(file, opts \\ []) do
-    Logger.warning("process_pdf/2 is deprecated, use prepare_file/2 instead")
-    prepare_file(file, opts)
-  end
-
-  @impl true
-  @deprecated "Use prepare_file/2 instead"
-  def process_document(file, opts \\ []) do
-    Logger.warning("process_document/2 is deprecated, use prepare_file/2 instead")
-    prepare_file(file, opts)
-  end
-
-  @impl true
-  @deprecated "Use prepare_file/2 instead"
-  def process_text(file, opts \\ []) do
-    Logger.warning("process_text/2 is deprecated, use prepare_file/2 instead")
-    prepare_file(file, opts)
-  end
-
-  @impl true
-  @deprecated "Use prepare_file/2 instead"
-  def process_generic_file(file, opts \\ []) do
-    Logger.warning("process_generic_file/2 is deprecated, use prepare_file/2 instead")
-    prepare_file(file, opts)
-  end
-
-  @impl true
-  @deprecated "Use prepare_file/2 instead"
-  def process_file(file, opts \\ []) do
-    Logger.warning("process_file/2 is deprecated, use prepare_file/2 instead")
-    prepare_file(file, opts)
-  end
-
   # Private helpers for downloading and validating content
 
   defp handle_redirect(resp_headers, original_headers, req_module) do
