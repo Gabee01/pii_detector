@@ -46,11 +46,13 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         attachments: [
           %{"text" => "Attachment 1"},
           %{"text" => "Attachment 2"},
-          %{"other" => "Not text"} # Should be ignored
+          # Should be ignored
+          %{"other" => "Not text"}
         ]
       }
 
-      assert ContentProcessor.extract_full_content(content) == "Main message\nAttachment 1\nAttachment 2\n"
+      assert ContentProcessor.extract_full_content(content) ==
+               "Main message\nAttachment 1\nAttachment 2\n"
     end
 
     test "extracts file descriptions" do
@@ -59,7 +61,8 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         files: [
           %{"mimetype" => "image/jpeg", "name" => "image1.jpg"},
           %{"mimetype" => "application/pdf", "name" => "document.pdf"},
-          %{"mimetype" => "text/plain", "name" => "text.txt"} # Should be ignored
+          # Should be ignored
+          %{"mimetype" => "text/plain", "name" => "text.txt"}
         ],
         attachments: []
       }
@@ -75,7 +78,8 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         attachments: []
       }
 
-      assert ContentProcessor.extract_full_content(content) == "Check this file\n\nImage file: unnamed\n"
+      assert ContentProcessor.extract_full_content(content) ==
+               "Check this file\n\nImage file: unnamed\n"
     end
 
     test "combines all content types" do
@@ -154,8 +158,10 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         case file["mimetype"] do
           "image/jpeg" ->
             {:ok, %{data: "base64_image_data", mimetype: "image/jpeg", name: file["name"]}}
+
           "application/pdf" ->
             {:ok, %{data: "base64_pdf_data", mimetype: "application/pdf", name: file["name"]}}
+
           _ ->
             {:error, "Unsupported file type"}
         end

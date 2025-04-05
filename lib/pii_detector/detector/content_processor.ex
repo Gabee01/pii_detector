@@ -24,19 +24,17 @@ defmodule PIIDetector.Detector.ContentProcessor do
     text = content[:text] || ""
 
     # Extract text from attachments
-    attachment_text =
+    attachment_texts =
       content
       |> Map.get(:attachments, [])
       |> Enum.map(fn attachment -> attachment["text"] end)
       |> Enum.reject(&is_nil/1)
-      |> Enum.join("\n")
 
-    # Add attachment text if present
-    full_text =
-      if attachment_text != "" do
-        text <> "\n" <> attachment_text <> "\n"
-      else
-        text <> "\n\n"
+    # Combine text with attachments
+    combined_text =
+      case attachment_texts do
+        [] -> text <> "\n\n"
+        texts -> text <> "\n" <> Enum.join(texts, "\n") <> "\n"
       end
 
     # Add file descriptions for image and PDF files
@@ -45,13 +43,12 @@ defmodule PIIDetector.Detector.ContentProcessor do
       |> Map.get(:files, [])
       |> Enum.filter(&supported_file?/1)
       |> Enum.map(&describe_file/1)
-      |> Enum.join("\n")
+      |> Enum.reject(&is_nil/1)
 
     # Add file descriptions if present
-    if file_descriptions != "" do
-      full_text <> file_descriptions <> "\n"
-    else
-      full_text
+    case file_descriptions do
+      [] -> combined_text
+      descriptions -> combined_text <> Enum.join(descriptions, "\n") <> "\n"
     end
   end
 
@@ -95,23 +92,27 @@ defmodule PIIDetector.Detector.ContentProcessor do
   defp pdf_file?(%{"mimetype" => "application/pdf"}), do: true
   defp pdf_file?(_), do: false
 
-  defp describe_file(_file = %{"mimetype" => mimetype, "name" => name}) do
+  defp describe_file(%{"mimetype" => mimetype, "name" => name}) do
     cond do
       String.starts_with?(mimetype, "image/") ->
         "Image file: #{name}"
+
       mimetype == "application/pdf" ->
         "PDF file: #{name}"
+
       true ->
         nil
     end
   end
 
-  defp describe_file(_file = %{"mimetype" => mimetype}) do
+  defp describe_file(%{"mimetype" => mimetype}) do
     cond do
       String.starts_with?(mimetype, "image/") ->
         "Image file: unnamed"
+
       mimetype == "application/pdf" ->
         "PDF file: unnamed"
+
       true ->
         nil
     end
@@ -120,11 +121,14 @@ defmodule PIIDetector.Detector.ContentProcessor do
   defp describe_file(_), do: nil
 
   defp process_image_file(nil), do: nil
+
   defp process_image_file(file) do
     file_adapter = determine_file_adapter(file)
 
     case file_adapter.process_file(file, []) do
-      {:ok, data} -> data
+      {:ok, data} ->
+        data
+
       {:error, reason} ->
         Logger.error("Failed to process image for PII detection: #{inspect(reason)}")
         nil
@@ -132,11 +136,14 @@ defmodule PIIDetector.Detector.ContentProcessor do
   end
 
   defp process_pdf_file(nil), do: nil
+
   defp process_pdf_file(file) do
     file_adapter = determine_file_adapter(file)
 
     case file_adapter.process_file(file, []) do
-      {:ok, data} -> data
+      {:ok, data} ->
+        data
+
       {:error, reason} ->
         Logger.error("Failed to process PDF for PII detection: #{inspect(reason)}")
         nil
@@ -148,11 +155,19 @@ defmodule PIIDetector.Detector.ContentProcessor do
     cond do
       # Check for Slack specific attributes
       Map.has_key?(file, "url_private") and not Map.has_key?(file, "type") ->
-        Application.get_env(:pii_detector, :slack_file_adapter, PIIDetector.Platform.Slack.FileAdapter)
+        Application.get_env(
+          :pii_detector,
+          :slack_file_adapter,
+          PIIDetector.Platform.Slack.FileAdapter
+        )
 
       # Check for Notion specific attributes (file or external type)
       Map.has_key?(file, "type") and file["type"] in ["file", "external"] ->
-        Application.get_env(:pii_detector, :notion_file_adapter, PIIDetector.Platform.Notion.FileAdapter)
+        Application.get_env(
+          :pii_detector,
+          :notion_file_adapter,
+          PIIDetector.Platform.Notion.FileAdapter
+        )
 
       # Use the file service processor directly for all other cases
       true ->

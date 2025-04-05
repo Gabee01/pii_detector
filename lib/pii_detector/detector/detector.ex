@@ -54,7 +54,8 @@ defmodule PIIDetector.Detector do
   end
 
   # Analyze content and determine if it contains PII
-  defp analyze_content(text_content, image_data, pdf_data) when (image_data != nil) or (pdf_data != nil) do
+  defp analyze_content(text_content, image_data, pdf_data)
+       when image_data != nil or pdf_data != nil do
     # Has image or PDF files, use multimodal analysis
     Logger.info("Analyzing content with multimodal AI (text + image/PDF)")
 

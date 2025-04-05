@@ -77,8 +77,10 @@ defmodule PIIDetector.FileService.Processor do
     cond do
       String.starts_with?(mimetype, "image/") ->
         process_image(file, opts)
+
       mimetype == "application/pdf" ->
         process_pdf(file, opts)
+
       true ->
         {:error, "Unsupported file type: #{mimetype}"}
     end
@@ -112,10 +114,9 @@ defmodule PIIDetector.FileService.Processor do
 
   defp validate_downloaded_content(body) when is_binary(body) do
     if String.starts_with?(body, "<!DOCTYPE") ||
-       String.starts_with?(body, "<html") ||
-       String.contains?(body, "<head") ||
-       String.starts_with?(body, "<?xml") do
-
+         String.starts_with?(body, "<html") ||
+         String.contains?(body, "<head") ||
+         String.starts_with?(body, "<?xml") do
       Logger.error("Downloaded content appears to be HTML/XML, not the expected file data")
       {:error, "Download failed: received HTML instead of file data"}
     else

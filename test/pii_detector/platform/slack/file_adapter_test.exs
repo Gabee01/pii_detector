@@ -118,7 +118,7 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
 
       # Pass a custom token
       custom_token = "custom-test-token"
-      assert {:ok, _result} = FileAdapter.process_file(slack_file, [token: custom_token])
+      assert {:ok, _result} = FileAdapter.process_file(slack_file, token: custom_token)
     end
   end
 end

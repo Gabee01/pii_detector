@@ -57,7 +57,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
         "url" => url,
         "mimetype" => mime_type,
         "name" => file_name,
-        "headers" => [] # No auth for external files
+        # No auth for external files
+        "headers" => []
       }
 
       process_by_type(file_service, adapted_file, opts)

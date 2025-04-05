@@ -108,7 +108,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
         assert file["url"] == "https://example.com/image.jpg"
         assert file["mimetype"] == "image/jpeg"
         assert file["name"] == "image.jpg"
-        assert file["headers"] == [] # No headers for external files
+        # No headers for external files
+        assert file["headers"] == []
         {:ok, expected_result}
       end)
 
@@ -203,7 +204,7 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
 
       # Pass a custom token
       custom_token = "custom-test-token"
-      assert {:ok, _result} = FileAdapter.process_file(file_object, [token: custom_token])
+      assert {:ok, _result} = FileAdapter.process_file(file_object, token: custom_token)
     end
   end
 end
