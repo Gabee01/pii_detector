@@ -1,4 +1,4 @@
-defmodule PIIDetector.FileDownloaderBehaviour do
+defmodule PIIDetector.FileDownloader.Behaviour do
   @moduledoc """
   Defines the behaviour for file downloading and processing.
   """

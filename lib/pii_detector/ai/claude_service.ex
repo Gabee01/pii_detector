@@ -1,8 +1,8 @@
 defmodule PIIDetector.AI.ClaudeService do
   @moduledoc """
-  Implementation of AIServiceBehaviour using Claude API via Anthropix.
+  Implementation of AI.Behaviour using Claude API via Anthropix.
   """
-  @behaviour PIIDetector.AI.AIServiceBehaviour
+  @behaviour PIIDetector.AI.Behaviour
 
   require Logger
 

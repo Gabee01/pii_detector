@@ -3,7 +3,7 @@ defmodule PIIDetector.FileDownloader do
   Context module for downloading and processing files.
   Handles file downloading, base64 encoding, and preparing file data for API calls.
   """
-  @behaviour PIIDetector.FileDownloaderBehaviour
+  @behaviour PIIDetector.FileDownloader.Behaviour
 
   require Logger
 

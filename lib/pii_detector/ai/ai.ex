@@ -4,7 +4,7 @@ defmodule PIIDetector.AI do
   This module serves as the main entry point for AI services in the application.
   """
 
-  alias PIIDetector.AI.ClaudeService
+  require Logger
 
   @doc """
   Analyzes text for personally identifiable information (PII).
@@ -48,6 +48,6 @@ defmodule PIIDetector.AI do
   # Private helper functions
 
   defp ai_service do
-    Application.get_env(:pii_detector, :ai_service, ClaudeService)
+    Application.get_env(:pii_detector, :ai_service, PIIDetector.AI.ClaudeService)
   end
 end

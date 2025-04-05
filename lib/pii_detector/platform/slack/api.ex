@@ -20,9 +20,51 @@ defmodule PIIDetector.Platform.Slack.API do
     System.get_env("SLACK_ADMIN_TOKEN")
   end
 
+  # Get bot token from environment
+  defp bot_token do
+    System.get_env("SLACK_BOT_TOKEN")
+  end
+
   @impl PIIDetector.Platform.Slack.APIBehaviour
   def post(endpoint, token, params) do
     slack_api().post(endpoint, token, params)
+  end
+
+  @doc """
+  Posts a message to a Slack channel.
+
+  ## Parameters
+  - channel: The channel ID
+  - text: The message text
+  - token: The bot token to use for the API call (optional)
+
+  ## Returns
+  - {:ok, %{"ok" => true}} on success
+  - {:error, reason} on failure
+  """
+  @impl PIIDetector.Platform.Slack.APIBehaviour
+  def post_message(channel, text, token \\ nil) do
+    token = token || bot_token()
+    post("chat.postMessage", token, %{channel: channel, text: text})
+  end
+
+  @doc """
+  Posts an ephemeral message to a Slack channel that only a specific user can see.
+
+  ## Parameters
+  - channel: The channel ID
+  - user: The user ID who should see the message
+  - text: The message text
+  - token: The bot token to use for the API call (optional)
+
+  ## Returns
+  - {:ok, %{"ok" => true}} on success
+  - {:error, reason} on failure
+  """
+  @impl PIIDetector.Platform.Slack.APIBehaviour
+  def post_ephemeral_message(channel, user, text, token \\ nil) do
+    token = token || bot_token()
+    post("chat.postEphemeral", token, %{channel: channel, user: user, text: text})
   end
 
   @doc """
@@ -39,7 +81,10 @@ defmodule PIIDetector.Platform.Slack.API do
   - {:error, reason} on failure
   """
   @impl PIIDetector.Platform.Slack.APIBehaviour
-  def delete_message(channel, ts, bot_token) do
+  def delete_message(channel, ts, token \\ nil) do
+    # Use provided token or the default bot token
+    bot_token = token || bot_token()
+
     # Try with admin token first
     case delete_message_with_admin(channel, ts) do
       {:error, :admin_token_not_set} ->
@@ -64,7 +109,10 @@ defmodule PIIDetector.Platform.Slack.API do
   - {:error, reason} on failure
   """
   @impl PIIDetector.Platform.Slack.APIBehaviour
-  def notify_user(user_id, message_content, bot_token) do
+  def notify_user(user_id, message_content, token \\ nil) do
+    # Use provided token or the default bot token
+    bot_token = token || bot_token()
+
     Logger.debug("Opening conversation with user #{user_id}")
 
     with {:ok, %{"ok" => true, "channel" => %{"id" => channel_id}}} <-

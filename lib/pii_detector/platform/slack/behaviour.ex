@@ -1,23 +1,13 @@
-defmodule PIIDetector.Platform.Slack.APIBehaviour do
+defmodule PIIDetector.Platform.Slack.Behaviour do
   @moduledoc """
-  Behaviour module for Slack API interactions.
-  This allows us to mock the Slack API calls in tests.
+  Behaviour module for Slack platform functionality.
+  This defines the interface for the Slack platform context.
   """
-
-  @doc """
-  Posts a request to the Slack API.
-  """
-  @callback post(endpoint :: String.t(), token :: String.t(), params :: map()) ::
-              {:ok, map()} | {:error, any()}
 
   @doc """
   Posts a message to a Slack channel.
   """
-  @callback post_message(
-              channel :: String.t(),
-              text :: String.t(),
-              token :: String.t() | nil
-            ) ::
+  @callback post_message(channel :: String.t(), text :: String.t(), token :: String.t() | nil) ::
               {:ok, map()} | {:error, any()}
 
   @doc """
@@ -32,13 +22,9 @@ defmodule PIIDetector.Platform.Slack.APIBehaviour do
               {:ok, map()} | {:error, any()}
 
   @doc """
-  Deletes a message from a channel.
+  Deletes a message from a Slack channel.
   """
-  @callback delete_message(
-              channel :: String.t(),
-              ts :: String.t(),
-              token :: String.t() | nil
-            ) ::
+  @callback delete_message(channel :: String.t(), ts :: String.t(), token :: String.t() | nil) ::
               {:ok, :deleted} | {:error, any()}
 
   @doc """
@@ -50,4 +36,9 @@ defmodule PIIDetector.Platform.Slack.APIBehaviour do
               token :: String.t() | nil
             ) ::
               {:ok, :notified} | {:error, any()}
+
+  @doc """
+  Formats a message for PII notification.
+  """
+  @callback format_pii_notification(message_content :: map()) :: String.t()
 end

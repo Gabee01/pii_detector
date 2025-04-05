@@ -1,4 +1,4 @@
-defmodule PIIDetector.DetectorBehaviour do
+defmodule PIIDetector.Detector.Behaviour do
   @moduledoc """
   Behaviour for PII detection functionality.
   """

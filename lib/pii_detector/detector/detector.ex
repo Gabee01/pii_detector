@@ -2,7 +2,7 @@ defmodule PIIDetector.Detector do
   @moduledoc """
   Detector module for finding personally identifiable information (PII) in content.
   """
-  @behaviour PIIDetector.DetectorBehaviour
+  @behaviour PIIDetector.Detector.Behaviour
 
   require Logger
 

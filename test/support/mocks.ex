@@ -5,14 +5,17 @@ defmodule PIIDetector.TestMocks do
   import Mox
 
   # Mock for the PII Detector
-  defmock(PIIDetector.DetectorMock, for: PIIDetector.DetectorBehaviour)
+  defmock(PIIDetector.DetectorMock, for: PIIDetector.Detector.Behaviour)
+
+  # Mock for the Slack Platform
+  defmock(PIIDetector.Platform.SlackMock, for: PIIDetector.Platform.Slack.Behaviour)
 
   # Mock for the Slack API
   defmock(PIIDetector.Platform.Slack.APIMock, for: PIIDetector.Platform.Slack.APIBehaviour)
 
   # Mock for the AI service
-  defmock(PIIDetector.AI.AIServiceMock, for: PIIDetector.AI.AIServiceBehaviour)
+  defmock(PIIDetector.AI.AIServiceMock, for: PIIDetector.AI.Behaviour)
 
   # Mock for the FileDownloader
-  defmock(PIIDetector.FileDownloaderMock, for: PIIDetector.FileDownloaderBehaviour)
+  defmock(PIIDetector.FileDownloaderMock, for: PIIDetector.FileDownloader.Behaviour)
 end
