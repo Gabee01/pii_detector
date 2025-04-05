@@ -1,6 +1,49 @@
 defmodule PIIDetector.Platform.Notion do
   @moduledoc """
   Implementation of Notion platform integration.
+
+  This module provides functionality to interact with Notion content, including:
+
+  - Extracting text content from pages, blocks, and databases
+  - Archiving pages with detected PII
+  - Notifying content creators via Slack when their content contains PII
+
+  ## Usage
+
+  ```elixir
+  # Extract content from a page
+  {:ok, content} = PIIDetector.Platform.Notion.extract_content_from_page(page_data, blocks)
+
+  # Check content for PII
+  {:ok, detected_pii} = PIIDetector.Detector.detect_pii(content)
+
+  # If PII is detected, archive the content
+  if map_size(detected_pii) > 0 do
+    {:ok, _} = PIIDetector.Platform.Notion.archive_content(page_id)
+    {:ok, _} = PIIDetector.Platform.Notion.notify_content_creator(user_id, content, detected_pii)
+  end
+  ```
+
+  ## Configuration
+
+  The module uses the following configuration:
+
+  ```elixir
+  # config/config.exs
+  config :pii_detector, :notion_api_module, PIIDetector.Platform.Notion.API
+
+  # For tests, you can mock the API module:
+  # config/test.exs
+  config :pii_detector, :notion_api_module, PIIDetector.Platform.Notion.APIMock
+  ```
+
+  ## Error Handling
+
+  All public functions in this module return tagged tuples:
+  - `{:ok, result}` for successful operations
+  - `{:error, reason}` for failed operations
+
+  Errors are logged using the Elixir Logger.
   """
   @behaviour PIIDetector.Platform.Notion.Behaviour
 
@@ -19,43 +62,121 @@ defmodule PIIDetector.Platform.Notion do
     Application.get_env(:pii_detector, :slack_module, Slack)
   end
 
+  @doc """
+  Extracts content from a Notion page.
+
+  Combines the page title with content from all blocks.
+
+  ## Parameters
+
+  - `page_data`: Map containing the page data from Notion API
+  - `blocks`: List of block maps from Notion API
+
+  ## Returns
+
+  - `{:ok, content}`: String containing the extracted content
+  - `{:error, reason}`: Error with reason as string
+
+  ## Examples
+
+      iex> page_data = %{"properties" => %{"title" => %{"title" => [%{"plain_text" => "Test Page"}]}}}
+      iex> blocks = [%{"type" => "paragraph", "paragraph" => %{"rich_text" => [%{"plain_text" => "Test content"}]}, "has_children" => false}]
+      iex> PIIDetector.Platform.Notion.extract_content_from_page(page_data, blocks)
+      {:ok, "Test Page\\nTest content"}
+
+  """
   @impl true
   def extract_content_from_page(page_data, blocks) do
     try do
+      # Log the page structure for debugging
+      Logger.debug("Extracting content from page with structure: #{inspect(page_data)}")
+
       # Extract page title if available
       page_title = extract_page_title(page_data)
+      Logger.debug("Extracted page title: #{page_title || "none"}")
 
       # Extract content from blocks
       {:ok, blocks_content} = extract_content_from_blocks(blocks)
+      Logger.debug("Extracted blocks content length: #{String.length(blocks_content)}")
 
       # Combine title and content
       content = if page_title, do: "#{page_title}\n#{blocks_content}", else: blocks_content
+      Logger.debug("Combined page content length: #{String.length(content)}")
 
       {:ok, content}
     rescue
       error ->
-        Logger.error("Failed to extract content from Notion page: #{inspect(error)}")
+        Logger.error("Failed to extract content from Notion page: #{inspect(error)}, stacktrace: #{inspect(Process.info(self(), :current_stacktrace))}")
         {:error, "Failed to extract content from page"}
     end
   end
 
+  @doc """
+  Extracts content from Notion blocks.
+
+  Processes various block types and combines their text content.
+
+  ## Parameters
+
+  - `blocks`: List of block maps from Notion API
+
+  ## Returns
+
+  - `{:ok, content}`: String containing the extracted content
+  - `{:error, reason}`: Error with reason as string
+
+  ## Examples
+
+      iex> blocks = [%{"type" => "paragraph", "paragraph" => %{"rich_text" => [%{"plain_text" => "Test content"}]}, "has_children" => false}]
+      iex> PIIDetector.Platform.Notion.extract_content_from_blocks(blocks)
+      {:ok, "Test content"}
+
+  """
   @impl true
   def extract_content_from_blocks(blocks) do
     try do
+      Logger.debug("Extracting content from #{length(blocks)} blocks")
+
       content =
         blocks
-        |> Enum.map(&extract_text_from_block/1)
+        |> Enum.map(fn block ->
+          text = extract_text_from_block(block)
+          if text, do: Logger.debug("Extracted from block #{block["id"] || "unknown"}: #{String.slice(text, 0, 50)}...")
+          text
+        end)
         |> Enum.filter(&(&1 != nil))
         |> Enum.join("\n")
 
+      Logger.debug("Total extracted content from blocks: #{String.length(content)} characters")
       {:ok, content}
     rescue
       error ->
-        Logger.error("Failed to extract content from Notion blocks: #{inspect(error)}")
+        Logger.error("Failed to extract content from Notion blocks: #{inspect(error)}, stacktrace: #{inspect(Process.info(self(), :current_stacktrace))}")
         {:error, "Failed to extract content from blocks"}
     end
   end
 
+  @doc """
+  Extracts content from Notion database entries.
+
+  Processes various property types and combines their text content.
+
+  ## Parameters
+
+  - `database_entries`: List of database entry maps from Notion API
+
+  ## Returns
+
+  - `{:ok, content}`: String containing the extracted content
+  - `{:error, reason}`: Error with reason as string
+
+  ## Examples
+
+      iex> entries = [%{"properties" => %{"Name" => %{"type" => "title", "title" => [%{"plain_text" => "Entry 1"}]}}}]
+      iex> PIIDetector.Platform.Notion.extract_content_from_database(entries)
+      {:ok, "Name: Entry 1"}
+
+  """
   @impl true
   def extract_content_from_database(database_entries) do
     try do
@@ -73,6 +194,26 @@ defmodule PIIDetector.Platform.Notion do
     end
   end
 
+  @doc """
+  Archives a Notion page.
+
+  Uses the Notion API to mark a page as archived.
+
+  ## Parameters
+
+  - `content_id`: ID of the Notion page to archive
+
+  ## Returns
+
+  - `{:ok, result}`: Success with the API response
+  - `{:error, reason}`: Error with reason as string
+
+  ## Examples
+
+      iex> PIIDetector.Platform.Notion.archive_content("page_id_123")
+      {:ok, %{"archived" => true}}
+
+  """
   @impl true
   def archive_content(content_id) do
     case notion_api().archive_page(content_id, nil, []) do
@@ -86,6 +227,28 @@ defmodule PIIDetector.Platform.Notion do
     end
   end
 
+  @doc """
+  Notifies a content creator about detected PII.
+
+  Maps the Notion user to their Slack account and sends a notification.
+
+  ## Parameters
+
+  - `user_id`: ID of the Notion user who created the content
+  - `content`: The content with detected PII
+  - `detected_pii`: Map of detected PII categories and values
+
+  ## Returns
+
+  - `{:ok, result}`: Success with the notification result
+  - `{:error, reason}`: Error with reason as string
+
+  ## Examples
+
+      iex> PIIDetector.Platform.Notion.notify_content_creator("user_123", "sensitive content", %{"email" => ["test@example.com"]})
+      {:ok, %{}}
+
+  """
   @impl true
   def notify_content_creator(user_id, content, detected_pii) do
     # Find the corresponding Slack user
@@ -122,6 +285,23 @@ defmodule PIIDetector.Platform.Notion do
 
       _ -> nil
     end
+  end
+
+  defp extract_page_title(%{"properties" => %{"Title" => title_data}}) do
+    case title_data do
+      %{"title" => rich_text_list} when is_list(rich_text_list) ->
+        rich_text_list
+        |> Enum.map(&extract_rich_text_content/1)
+        |> Enum.join("")
+
+      _ -> nil
+    end
+  end
+
+  defp extract_page_title(%{"title" => title_data}) when is_list(title_data) do
+    title_data
+    |> Enum.map(&extract_rich_text_content/1)
+    |> Enum.join("")
   end
 
   defp extract_page_title(_), do: nil

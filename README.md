@@ -48,6 +48,7 @@ For detailed documentation about the application's architecture and components, 
 - [Event Processing Queues](docs/architecture/event_processing_queues.md)
 - [Oban Configuration](docs/architecture/oban_configuration.md)
 - [Slack Integration](docs/architecture/slack_integration.md)
+- [Notion Integration](docs/architecture/notion_integration.md)
 - [PII Detection Process](docs/pii_detection.md)
 - [Multimodal File Processing](docs/multimodal_processing.md)
 - [Architecture](docs/architecture/README.md)
@@ -60,12 +61,22 @@ The application integrates with Slack using Socket Mode to monitor messages in c
 
 For complete setup instructions, configuration options, and detailed information about the Slack integration, see our [Slack Integration Documentation](docs/architecture/slack_integration.md).
 
-### Environment Variables
+### Notion Integration
 
-To configure the Slack integration, set the following environment variables:
+The application integrates with Notion using webhooks to monitor page and database changes. When PII is detected in Notion content, the page is archived and the author is notified via Slack.
+
+For complete setup instructions, configuration options, and detailed information about the Notion integration, see our [Notion Integration Documentation](docs/architecture/notion_integration.md).
+
+## Environment Variables
+
+### Slack Configuration
 - `SLACK_APP_TOKEN` - Socket Mode app-level token (starts with `xapp-`)
 - `SLACK_BOT_TOKEN` - Bot user token (starts with `xoxb-`)
 - `SLACK_ADMIN_TOKEN` - Admin user token for message deletion (starts with `xoxp-`)
+
+### Notion Configuration
+- `NOTION_API_KEY` - Notion integration token (starts with `secret_`)
+- `NOTION_WEBHOOK_SECRET` - Secret for verifying webhook requests from Notion
 
 ## Development Setup
 

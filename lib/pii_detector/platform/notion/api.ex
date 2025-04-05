@@ -9,124 +9,172 @@ defmodule PIIDetector.Platform.Notion.API do
   @impl true
   def get_page(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
-    url = "#{config()[:base_url]}/pages/#{page_id}"
 
-    headers = [
-      {"Authorization", "Bearer #{token}"},
-      {"Notion-Version", config()[:notion_version]},
-      {"Content-Type", "application/json"}
-    ]
+    if !token do
+      Logger.error("No Notion API token available - cannot fetch page: #{page_id}")
+      {:error, "Missing API token"}
+    else
+      url = "#{config()[:base_url]}/pages/#{page_id}"
 
-    # Merge default options with any provided options
-    req_options = Keyword.merge(req_options(), opts)
-    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+      headers = [
+        {"Authorization", "Bearer #{token}"},
+        {"Notion-Version", config()[:notion_version]},
+        {"Content-Type", "application/json"}
+      ]
 
-    case Req.get(url, [headers: headers] ++ req_options) do
-      {:ok, %{status: 200, body: body}} ->
-        Logger.info("Successfully fetched Notion page: #{page_id}")
-        {:ok, body}
+      # Merge default options with any provided options
+      req_options = Keyword.merge(req_options(), opts)
+      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
 
-      {:ok, %{status: status, body: body}} ->
-        Logger.error("Error fetching Notion page: status=#{status}, body=#{inspect(body)}")
-        {:error, "API error: #{status}"}
+      case Req.get(url, [headers: headers] ++ req_options) do
+        {:ok, %{status: 200, body: body}} ->
+          Logger.info("Successfully fetched Notion page: #{page_id}")
+          {:ok, body}
 
-      {:error, reason} ->
-        Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
-        {:error, reason}
+        {:ok, %{status: 401, body: body}} ->
+          Logger.error("Authentication error fetching Notion page: #{inspect(body)}")
+          {:error, "Authentication failed - invalid API token"}
+
+        {:ok, %{status: 404, body: body}} ->
+          Logger.error("Page not found or integration lacks access to page: #{page_id}, response: #{inspect(body)}")
+          {:error, "Page not found or integration lacks access - verify integration is added to page"}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Error fetching Notion page: status=#{status}, body=#{inspect(body)}")
+          {:error, "API error: #{status}"}
+
+        {:error, reason} ->
+          Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
+          {:error, reason}
+      end
     end
   end
 
   @impl true
   def get_blocks(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
-    url = "#{config()[:base_url]}/blocks/#{page_id}/children"
 
-    headers = [
-      {"Authorization", "Bearer #{token}"},
-      {"Notion-Version", config()[:notion_version]},
-      {"Content-Type", "application/json"}
-    ]
+    if !token do
+      Logger.error("No Notion API token available - cannot fetch blocks: #{page_id}")
+      {:error, "Missing API token"}
+    else
+      url = "#{config()[:base_url]}/blocks/#{page_id}/children"
 
-    # Merge default options with any provided options
-    req_options = Keyword.merge(req_options(), opts)
-    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+      headers = [
+        {"Authorization", "Bearer #{token}"},
+        {"Notion-Version", config()[:notion_version]},
+        {"Content-Type", "application/json"}
+      ]
 
-    case Req.get(url, [headers: headers] ++ req_options) do
-      {:ok, %{status: 200, body: %{"results" => results}}} ->
-        Logger.info("Successfully fetched blocks for Notion page: #{page_id}")
-        {:ok, results}
+      # Merge default options with any provided options
+      req_options = Keyword.merge(req_options(), opts)
+      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
 
-      {:ok, %{status: status, body: body}} ->
-        Logger.error("Error fetching Notion blocks: status=#{status}, body=#{inspect(body)}")
-        {:error, "API error: #{status}"}
+      case Req.get(url, [headers: headers] ++ req_options) do
+        {:ok, %{status: 200, body: %{"results" => results}}} ->
+          Logger.info("Successfully fetched blocks for Notion page: #{page_id}")
+          {:ok, results}
 
-      {:error, reason} ->
-        Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
-        {:error, reason}
+        {:ok, %{status: 401, body: body}} ->
+          Logger.error("Authentication error fetching Notion blocks: #{inspect(body)}")
+          {:error, "Authentication failed - invalid API token"}
+
+        {:ok, %{status: 404, body: body}} ->
+          Logger.error("Page not found or integration lacks access to blocks: #{page_id}, response: #{inspect(body)}")
+          {:error, "Page not found or integration lacks access - verify integration is added to page"}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Error fetching Notion blocks: status=#{status}, body=#{inspect(body)}")
+          {:error, "API error: #{status}"}
+
+        {:error, reason} ->
+          Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
+          {:error, reason}
+      end
     end
   end
 
   @impl true
   def get_database_entries(database_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
-    url = "#{config()[:base_url]}/databases/#{database_id}/query"
 
-    headers = [
-      {"Authorization", "Bearer #{token}"},
-      {"Notion-Version", config()[:notion_version]},
-      {"Content-Type", "application/json"}
-    ]
+    if !token do
+      Logger.error("No Notion API token available - cannot fetch database entries: #{database_id}")
+      {:error, "Missing API token"}
+    else
+      url = "#{config()[:base_url]}/databases/#{database_id}/query"
 
-    # Merge default options with any provided options
-    req_options = Keyword.merge(req_options(), opts)
-    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+      headers = [
+        {"Authorization", "Bearer #{token}"},
+        {"Notion-Version", config()[:notion_version]},
+        {"Content-Type", "application/json"}
+      ]
 
-    case Req.post(url, [headers: headers, json: %{}] ++ req_options) do
-      {:ok, %{status: 200, body: %{"results" => results}}} ->
-        Logger.info("Successfully fetched database entries for Notion database: #{database_id}")
-        {:ok, results}
+      # Merge default options with any provided options
+      req_options = Keyword.merge(req_options(), opts)
+      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
 
-      {:ok, %{status: status, body: body}} ->
-        Logger.error("Error fetching Notion database entries: status=#{status}, body=#{inspect(body)}")
-        {:error, "API error: #{status}"}
+      case Req.post(url, [headers: headers, json: %{}] ++ req_options) do
+        {:ok, %{status: 200, body: %{"results" => results}}} ->
+          Logger.info("Successfully fetched database entries for Notion database: #{database_id}")
+          {:ok, results}
 
-      {:error, reason} ->
-        Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
-        {:error, reason}
+        {:ok, %{status: 401, body: body}} ->
+          Logger.error("Authentication error fetching Notion database entries: #{inspect(body)}")
+          {:error, "Authentication failed - invalid API token"}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Error fetching Notion database entries: status=#{status}, body=#{inspect(body)}")
+          {:error, "API error: #{status}"}
+
+        {:error, reason} ->
+          Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
+          {:error, reason}
+      end
     end
   end
 
   @impl true
   def archive_page(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
-    url = "#{config()[:base_url]}/pages/#{page_id}"
 
-    headers = [
-      {"Authorization", "Bearer #{token}"},
-      {"Notion-Version", config()[:notion_version]},
-      {"Content-Type", "application/json"}
-    ]
+    if !token do
+      Logger.error("No Notion API token available - cannot archive page: #{page_id}")
+      {:error, "Missing API token"}
+    else
+      url = "#{config()[:base_url]}/pages/#{page_id}"
 
-    payload = %{
-      "archived" => true
-    }
+      headers = [
+        {"Authorization", "Bearer #{token}"},
+        {"Notion-Version", config()[:notion_version]},
+        {"Content-Type", "application/json"}
+      ]
 
-    # Merge default options with any provided options
-    req_options = Keyword.merge(req_options(), opts)
-    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+      payload = %{
+        "archived" => true
+      }
 
-    case Req.patch(url, [headers: headers, json: payload] ++ req_options) do
-      {:ok, %{status: 200, body: body}} ->
-        Logger.info("Successfully archived Notion page: #{page_id}")
-        {:ok, body}
+      # Merge default options with any provided options
+      req_options = Keyword.merge(req_options(), opts)
+      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
 
-      {:ok, %{status: status, body: body}} ->
-        Logger.error("Error archiving Notion page: status=#{status}, body=#{inspect(body)}")
-        {:error, "API error: #{status}"}
+      case Req.patch(url, [headers: headers, json: payload] ++ req_options) do
+        {:ok, %{status: 200, body: body}} ->
+          Logger.info("Successfully archived Notion page: #{page_id}")
+          {:ok, body}
 
-      {:error, reason} ->
-        Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
-        {:error, reason}
+        {:ok, %{status: 401, body: body}} ->
+          Logger.error("Authentication error archiving Notion page: #{inspect(body)}")
+          {:error, "Authentication failed - invalid API token"}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Error archiving Notion page: status=#{status}, body=#{inspect(body)}")
+          {:error, "API error: #{status}"}
+
+        {:error, reason} ->
+          Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
+          {:error, reason}
+      end
     end
   end
 
@@ -137,7 +185,21 @@ defmodule PIIDetector.Platform.Notion.API do
   end
 
   defp config do
-    Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
+    config = Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
+
+    # Try to get token from both possible environment variables if it's missing in config
+    api_token = config[:api_token] ||
+                System.get_env("NOTION_API_TOKEN") ||
+                System.get_env("NOTION_API_KEY")
+
+    if !api_token do
+      Logger.error("Notion API token not found! Check environment variables NOTION_API_TOKEN or NOTION_API_KEY")
+    else
+      token_preview = String.slice(api_token, 0, 4) <> "..." <> String.slice(api_token, -4, 4)
+      Logger.debug("Using Notion API token: #{token_preview}")
+    end
+
+    Map.put(config, :api_token, api_token)
   end
 
   defp req_options do

@@ -59,5 +59,4 @@ config :pii_detector, :anthropic_client, PIIDetector.AI.Anthropic.MockClient
 config :pii_detector, PIIDetector.Platform.Notion,
   api_token: "test-notion-api-token",
   notion_version: "2022-06-28",
-  base_url: "https://api.notion.com/v1",
-  webhook_signing_secret: "test-notion-webhook-secret"
+  base_url: "https://api.notion.com/v1"
