@@ -139,72 +139,74 @@ defmodule PIIDetector.AI.ClaudeService do
     ]
 
     # Add image if present
-    content =
-      if image_data do
-        Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
-
-        # Validate the image data is not HTML (possible redirect response)
-        if String.starts_with?(image_data.data, "PCFET0NUWV") ||
-             String.starts_with?(image_data.data, "PGh0bWw") ||
-             String.starts_with?(image_data.data, "PHhtbC") ||
-             String.starts_with?(image_data.data, "<!DOCTYPE") ||
-             String.starts_with?(image_data.data, "<html") do
-          Logger.error(
-            "Invalid image data detected: appears to be HTML/XML content rather than an image"
-          )
-
-          content
-        else
-          content ++
-            [
-              %{
-                type: "image",
-                source: %{
-                  type: "base64",
-                  media_type: image_data.mimetype,
-                  data: image_data.data
-                }
-              }
-            ]
-        end
-      else
-        content
-      end
+    content = add_image_to_content(content, image_data)
 
     # Add PDF if present
-    content =
-      if pdf_data do
-        Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
-
-        # Validate the PDF data is not HTML (possible redirect response)
-        if String.starts_with?(pdf_data.data, "PCFET0NUWV") ||
-             String.starts_with?(pdf_data.data, "PGh0bWw") ||
-             String.starts_with?(pdf_data.data, "PHhtbC") ||
-             String.starts_with?(pdf_data.data, "<!DOCTYPE") ||
-             String.starts_with?(pdf_data.data, "<html") do
-          Logger.error(
-            "Invalid PDF data detected: appears to be HTML/XML content rather than a PDF"
-          )
-
-          content
-        else
-          content ++
-            [
-              %{
-                type: "document",
-                source: %{
-                  type: "base64",
-                  media_type: "application/pdf",
-                  data: pdf_data.data
-                }
-              }
-            ]
-        end
-      else
-        content
-      end
+    content = add_pdf_to_content(content, pdf_data)
 
     content
+  end
+
+  defp add_image_to_content(content, nil), do: content
+  defp add_image_to_content(content, image_data) do
+    Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
+
+    # Check if the base64 data appears to be HTML content
+    if html_base64?(image_data.data) do
+      Logger.error("Detected HTML content in base64 data - not adding image")
+      content
+    else
+      content ++
+        [
+          %{
+            type: "image",
+            source: %{
+              type: "base64",
+              media_type: image_data.mimetype,
+              data: image_data.data
+            }
+          }
+        ]
+    end
+  end
+
+  defp add_pdf_to_content(content, nil), do: content
+  defp add_pdf_to_content(content, pdf_data) do
+    Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
+
+    # Check if the base64 data appears to be HTML content
+    if html_base64?(pdf_data.data) do
+      Logger.error("Detected HTML content in base64 data - not adding PDF")
+      content
+    else
+      content ++
+        [
+          %{
+            type: "document",
+            source: %{
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdf_data.data
+            }
+          }
+        ]
+    end
+  end
+
+  # Detects if base64 data appears to be encoded HTML content
+  defp html_base64?(base64_data) do
+    # Check common HTML patterns in base64
+    html_patterns = [
+      "PCFET0NUWV", # <!DOCTY
+      "PGh0bWw", # <html
+      "PHhtbC", # <xml
+      "PGhlYWQ", # <head
+      "PGJvZHk" # <body
+    ]
+
+    Enum.any?(html_patterns, fn pattern ->
+      String.starts_with?(base64_data, pattern)
+    end)
   end
 
   defp pii_detection_system_prompt do

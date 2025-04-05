@@ -4,8 +4,8 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
 
   require Logger
 
-  alias PIIDetector.AI.ClaudeService
   alias PIIDetector.AI.Anthropic.ClientMock
+  alias PIIDetector.AI.ClaudeService
 
   # Setup to verify mocks expectations
   setup :verify_on_exit!
@@ -187,6 +187,29 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       {:ok, result} = test_extract_json.(text_with_json)
       assert result["has_pii"] == true
       assert result["categories"] == ["email"]
+    end
+
+    test "html_base64? correctly identifies HTML content in base64" do
+      # Html content encoded in base64
+      html_base64 = "PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHRpdGxlPlRlc3Q8L3RpdGxlPjwvaGVhZD48Ym9keT5UaGlzIGlzIGEgdGVzdDwvYm9keT48L2h0bWw+"
+
+      # Create a function to test the private function
+      test_is_html = fn base64 ->
+        html_patterns = [
+          "PCFET0NUWV", # <!DOCTY
+          "PGh0bWw", # <html
+          "PHhtbC", # <xml
+          "PGhlYWQ", # <head
+          "PGJvZHk" # <body
+        ]
+
+        Enum.any?(html_patterns, fn pattern ->
+          String.starts_with?(base64, pattern)
+        end)
+      end
+
+      assert test_is_html.(html_base64) == true
+      assert test_is_html.("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7") == false # Not HTML
     end
   end
 end

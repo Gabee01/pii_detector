@@ -81,21 +81,10 @@ defmodule PIIDetector.FileDownloader do
 
     case req_module.(url, headers: headers) do
       {:ok, %{status: 200, body: body}} ->
-        {:ok, body}
+        validate_downloaded_content(body)
 
       {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
-        # Get the location header
-        location =
-          Enum.find_value(headers, fn {key, value} ->
-            if String.downcase(key) == "location", do: value
-          end)
-
-        if location do
-          Logger.debug("Following redirect to: #{location}")
-          download_file_with_module(%{"url_private" => location, "token" => token}, req_module)
-        else
-          {:error, "Redirect without location header, status: #{status}"}
-        end
+        handle_redirect(headers, token, req_module)
 
       {:ok, %{status: status}} ->
         {:error, "Failed to download file, status: #{status}"}
@@ -116,21 +105,10 @@ defmodule PIIDetector.FileDownloader do
 
     case req_module.get(url, headers: headers) do
       {:ok, %{status: 200, body: body}} ->
-        {:ok, body}
+        validate_downloaded_content(body)
 
       {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
-        # Get the location header
-        location =
-          Enum.find_value(headers, fn {key, value} ->
-            if String.downcase(key) == "location", do: value
-          end)
-
-        if location do
-          Logger.debug("Following redirect to: #{location}")
-          download_file_with_module(%{"url_private" => location, "token" => token}, req_module)
-        else
-          {:error, "Redirect without location header, status: #{status}"}
-        end
+        handle_redirect(headers, token, req_module)
 
       {:ok, %{status: status}} ->
         {:error, "Failed to download file, status: #{status}"}
@@ -154,4 +132,34 @@ defmodule PIIDetector.FileDownloader do
   defp download_file_with_module(_, _) do
     {:error, "Invalid file object, missing url_private"}
   end
+
+  defp handle_redirect(headers, token, req_module) do
+    # Get the location header
+    location = Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(key) == "location", do: value
+    end)
+
+    if location do
+      Logger.debug("Following redirect to: #{location}")
+      download_file_with_module(%{"url_private" => location, "token" => token}, req_module)
+    else
+      {:error, "Redirect without location header"}
+    end
+  end
+
+  defp validate_downloaded_content(body) when is_binary(body) do
+    # Check if the content appears to be HTML or XML
+    if String.starts_with?(body, "<!DOCTYPE") ||
+       String.starts_with?(body, "<html") ||
+       String.contains?(body, "<head") ||
+       String.starts_with?(body, "<?xml") do
+      # This is likely an HTML page, not the actual file
+      Logger.error("Downloaded content appears to be HTML/XML, not the expected file data")
+      {:error, "Download failed: received HTML instead of file data"}
+    else
+      {:ok, body}
+    end
+  end
+
+  defp validate_downloaded_content(body), do: {:ok, body}
 end

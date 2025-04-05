@@ -168,6 +168,29 @@ defmodule PIIDetector.FileDownloaderTest do
       # Verify the result
       assert result == {:error, "Failed to download file, status: 500"}
     end
+
+    test "handles download errors when receiving HTML instead of file content" do
+      file = %{
+        "url_private" => "https://example.com/html_file.jpg",
+        "token" => "test-token",
+        "mimetype" => "image/jpeg"
+      }
+
+      # Mock a response that returns HTML instead of a binary file
+      mock_req = fn _url, _opts ->
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+          <head><title>Example HTML</title></head>
+          <body>This is not an image file</body>
+        </html>
+        """
+        {:ok, %{status: 200, body: html_content}}
+      end
+
+      assert {:error, "Download failed: received HTML instead of file data"} =
+               FileDownloader.download_file(file, req_module: mock_req)
+    end
   end
 
   describe "process_image/2" do
