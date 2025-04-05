@@ -8,6 +8,7 @@ This directory contains comprehensive documentation for the PII Detector applica
   - [Event Processing Queues](architecture/event_processing_queues.md) - Details about the Oban-based event processing system
   - [Oban Configuration](architecture/oban_configuration.md) - Guide for configuring and using Oban in the project
   - [Slack Integration](architecture/slack_integration.md) - Comprehensive guide for the Slack integration
+  - [Notion Integration](architecture/notion_integration.md) - Documentation for the Notion API implementation
   
 ## Documentation Guidelines
 
