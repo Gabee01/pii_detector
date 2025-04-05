@@ -9,6 +9,17 @@ This application monitors Slack channels and Notion databases for messages or do
 - Automated content removal when PII is detected
 - User notification via Slack DM
 - AI-powered PII detection for text, images, and file attachments
+- Automatic detection of PII in Slack messages
+- Support for multimodal content analysis:
+  * Text messages
+  * Image files (JPG, PNG, etc.)
+  * PDF documents
+- Robust file handling with Slack API:
+  * Secure authentication
+  * Redirect following
+  * HTML content detection
+- Comprehensive PII categories detection
+- Customizable notification system
 
 ## Technology Stack
 
@@ -37,6 +48,9 @@ For detailed documentation about the application's architecture and components, 
 - [Event Processing Queues](docs/architecture/event_processing_queues.md)
 - [Oban Configuration](docs/architecture/oban_configuration.md)
 - [Slack Integration](docs/architecture/slack_integration.md)
+- [PII Detection Process](docs/pii_detection.md)
+- [Multimodal File Processing](docs/multimodal_processing.md)
+- [Architecture](docs/architecture/README.md)
 
 ## Platform Integrations
 

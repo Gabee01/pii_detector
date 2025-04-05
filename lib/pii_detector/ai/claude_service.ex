@@ -1,6 +1,22 @@
 defmodule PIIDetector.AI.ClaudeService do
   @moduledoc """
   Implementation of AI.Behaviour using Claude API via Anthropix.
+
+  This module is responsible for:
+
+  * Communicating with Anthropic's Claude API for PII detection
+  * Processing both text-only and multimodal (text + images/PDFs) content
+  * Building properly formatted requests for Claude's API
+  * Validating responses and extracting structured data
+  * Handling base64-encoded content to detect potential HTML content
+
+  The multimodal processing allows for PII detection in:
+  * Text messages
+  * Image files (JPG, PNG, etc.)
+  * PDF documents
+
+  The service includes validation to prevent sending problematic data to Claude's API,
+  such as HTML content that might be returned by Slack instead of actual file data.
   """
   @behaviour PIIDetector.AI.Behaviour
 
@@ -8,6 +24,24 @@ defmodule PIIDetector.AI.ClaudeService do
 
   @doc """
   Analyzes text for personally identifiable information (PII) using Claude API.
+
+  This function:
+  1. Initializes the Anthropic client with API key
+  2. Creates a structured prompt for PII detection
+  3. Sends the request to Claude's API
+  4. Parses and normalizes the response
+
+  ## Parameters
+
+  * `text` - The text content to analyze for PII
+
+  ## Returns
+
+  * `{:ok, result}` - Map containing:
+    * `has_pii` - Boolean indicating if PII was detected
+    * `categories` - List of PII categories found (e.g. "email", "phone")
+    * `explanation` - Human-readable explanation of the findings
+  * `{:error, reason}` - Error description if the analysis failed
   """
   @impl true
   def analyze_pii(text) do
@@ -45,6 +79,38 @@ defmodule PIIDetector.AI.ClaudeService do
   @doc """
   Analyzes text and visual content for personally identifiable information (PII)
   using Claude's multimodal API capabilities.
+
+  This function handles three types of content simultaneously:
+  1. Text data for analysis
+  2. Optional image data (JPEG, PNG, etc.) in base64 format
+  3. Optional PDF data in base64 format
+
+  The function:
+  1. Initializes the Anthropic client with API key
+  2. Builds a multimodal content array combining text, images, and/or PDFs
+  3. Validates base64 data to filter out HTML content that may cause API errors
+  4. Sends the multimodal request to Claude's API
+  5. Parses and normalizes the response
+
+  ## Parameters
+
+  * `text` - The text content to analyze for PII
+  * `image_data` - Optional map with base64-encoded image details:
+    * `data` - Base64-encoded image content
+    * `mimetype` - The MIME type of the image
+    * `name` - Filename or identifier
+  * `pdf_data` - Optional map with base64-encoded PDF details:
+    * `data` - Base64-encoded PDF content
+    * `mimetype` - Should be "application/pdf"
+    * `name` - Filename or identifier
+
+  ## Returns
+
+  * `{:ok, result}` - Map containing:
+    * `has_pii` - Boolean indicating if PII was detected
+    * `categories` - List of PII categories found (e.g. "email", "phone")
+    * `explanation` - Human-readable explanation of the findings
+  * `{:error, reason}` - Error description if the analysis failed
   """
   @impl true
   def analyze_pii_multimodal(text, image_data, pdf_data) do
@@ -127,6 +193,8 @@ defmodule PIIDetector.AI.ClaudeService do
     """
   end
 
+  @doc false
+  # Builds a content array suitable for Claude's multimodal API combining text, images, and PDFs
   defp build_multimodal_content(text, image_data, pdf_data) do
     # Start with the text prompt
     prompt_text = create_pii_detection_prompt(text)
@@ -147,6 +215,8 @@ defmodule PIIDetector.AI.ClaudeService do
     content
   end
 
+  @doc false
+  # Adds image data to the multimodal content array if present and valid
   defp add_image_to_content(content, nil), do: content
 
   defp add_image_to_content(content, image_data) do
@@ -171,6 +241,8 @@ defmodule PIIDetector.AI.ClaudeService do
     end
   end
 
+  @doc false
+  # Adds PDF data to the multimodal content array if present and valid
   defp add_pdf_to_content(content, nil), do: content
 
   defp add_pdf_to_content(content, pdf_data) do
@@ -195,7 +267,9 @@ defmodule PIIDetector.AI.ClaudeService do
     end
   end
 
+  @doc false
   # Detects if base64 data appears to be encoded HTML content
+  # This prevents sending HTML error pages to Claude's API
   defp html_base64?(base64_data) do
     # Check common HTML patterns in base64
     html_patterns = [

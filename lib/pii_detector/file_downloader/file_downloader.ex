@@ -1,15 +1,43 @@
 defmodule PIIDetector.FileDownloader do
   @moduledoc """
-  Context module for downloading and processing files.
-  Handles file downloading, base64 encoding, and preparing file data for API calls.
+  Context module for downloading and processing files from Slack.
+
+  This module is responsible for:
+
+  * Downloading files from Slack's API using authentication tokens
+  * Handling various response types (success, redirects, errors)
+  * Detecting and rejecting HTML responses that might occur instead of actual file data
+  * Processing images and PDFs for Claude API consumption by:
+    * Converting binary data to base64 encoding
+    * Preparing metadata (MIME type, filename)
+
+  The download process includes redirect handling and validation to ensure
+  we're getting actual file data rather than HTML error pages.
   """
   @behaviour PIIDetector.FileDownloader.Behaviour
 
   require Logger
 
   @doc """
-  Downloads a file from a URL with authentication token.
-  Returns {:ok, file_data} or {:error, reason}
+  Downloads a file from a Slack URL with authentication token.
+
+  This function handles:
+  * Authentication with Slack's API using the provided token
+  * Following redirects if the URL points to another location
+  * Detecting HTML responses that might indicate an error page
+  * Various error conditions with descriptive error messages
+
+  ## Parameters
+
+  * `file` - A map containing at minimum `url_private` and optional `token`. If no token
+     is provided, it will attempt to use the `SLACK_BOT_TOKEN` environment variable.
+  * `opts` - Options list, primarily for testing:
+    * `:req_module` - The HTTP client module to use (default: `&Req.get/2`)
+
+  ## Returns
+
+  * `{:ok, binary_data}` - The downloaded file content as binary data
+  * `{:error, reason}` - Error description if the download failed
   """
   @impl true
   def download_file(file, opts \\ []) do
@@ -18,9 +46,29 @@ defmodule PIIDetector.FileDownloader do
   end
 
   @doc """
-  Processes an image file for AI analysis.
-  Downloads the file and converts it to base64.
-  Returns {:ok, processed_data} or {:error, reason}
+  Processes an image file from Slack for Claude AI analysis.
+
+  This function:
+  1. Downloads the image file using `download_file/2`
+  2. Converts the binary image data to base64 encoding
+  3. Prepares a structured map with the image metadata
+
+  ## Parameters
+
+  * `file` - A Slack file object map containing:
+    * `url_private` - The Slack URL for the file
+    * `token` - Authentication token (optional)
+    * `mimetype` - The MIME type of the image
+    * `name` - The filename (defaults to "unnamed" if not provided)
+  * `opts` - Options to pass to the underlying `download_file/2` function
+
+  ## Returns
+
+  * `{:ok, processed_data}` - Map containing:
+    * `data` - Base64-encoded image content
+    * `mimetype` - The MIME type of the image
+    * `name` - Filename or "unnamed"
+  * `{:error, reason}` - Error description if processing failed
   """
   @impl true
   def process_image(file, opts \\ []) do
@@ -43,9 +91,28 @@ defmodule PIIDetector.FileDownloader do
   end
 
   @doc """
-  Processes a PDF file for AI analysis.
-  Downloads the file and converts it to base64.
-  Returns {:ok, processed_data} or {:error, reason}
+  Processes a PDF file from Slack for Claude AI analysis.
+
+  This function:
+  1. Downloads the PDF file using `download_file/2`
+  2. Converts the binary PDF data to base64 encoding
+  3. Prepares a structured map with the PDF metadata
+
+  ## Parameters
+
+  * `file` - A Slack file object map containing:
+    * `url_private` - The Slack URL for the file
+    * `token` - Authentication token (optional)
+    * `name` - The filename (defaults to "unnamed" if not provided)
+  * `opts` - Options to pass to the underlying `download_file/2` function
+
+  ## Returns
+
+  * `{:ok, processed_data}` - Map containing:
+    * `data` - Base64-encoded PDF content
+    * `mimetype` - Always "application/pdf"
+    * `name` - Filename or "unnamed"
+  * `{:error, reason}` - Error description if processing failed
   """
   @impl true
   def process_pdf(file, opts \\ []) do
