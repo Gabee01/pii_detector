@@ -18,14 +18,16 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       ClientMock
       |> expect(:init, fn _api_key -> %{mock: true} end)
       |> expect(:chat, fn _client, _opts ->
-        {:ok, %{
-          "content" => [
-            %{
-              "type" => "text",
-              "text" => ~s({"has_pii": true, "categories": ["email"], "explanation": "Contains email address"})
-            }
-          ]
-        }}
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s({"has_pii": true, "categories": ["email"], "explanation": "Contains email address"})
+             }
+           ]
+         }}
       end)
 
       result = ClaudeService.analyze_pii("Hello, my email is john@example.com")
@@ -38,14 +40,16 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       ClientMock
       |> expect(:init, fn _api_key -> %{mock: true} end)
       |> expect(:chat, fn _client, _opts ->
-        {:ok, %{
-          "content" => [
-            %{
-              "type" => "text",
-              "text" => ~s({"has_pii": false, "categories": [], "explanation": "No PII detected in the text."})
-            }
-          ]
-        }}
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s({"has_pii": false, "categories": [], "explanation": "No PII detected in the text."})
+             }
+           ]
+         }}
       end)
 
       result = ClaudeService.analyze_pii("Hello, this is a safe message")
@@ -70,14 +74,15 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       ClientMock
       |> expect(:init, fn _api_key -> %{mock: true} end)
       |> expect(:chat, fn _client, _opts ->
-        {:ok, %{
-          "content" => [
-            %{
-              "type" => "text",
-              "text" => "This is not valid JSON"
-            }
-          ]
-        }}
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" => "This is not valid JSON"
+             }
+           ]
+         }}
       end)
 
       result = ClaudeService.analyze_pii("This is not valid JSON")
@@ -100,14 +105,16 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       ClientMock
       |> expect(:init, fn _api_key -> %{mock: true} end)
       |> expect(:chat, fn _client, _opts ->
-        {:ok, %{
-          "content" => [
-            %{
-              "type" => "text",
-              "text" => ~s({"has_pii": true, "categories": ["name"], "explanation": "Image contains personal information"})
-            }
-          ]
-        }}
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s({"has_pii": true, "categories": ["name"], "explanation": "Image contains personal information"})
+             }
+           ]
+         }}
       end)
 
       result = ClaudeService.analyze_pii_multimodal(text, image_data, nil)
@@ -129,14 +136,16 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       ClientMock
       |> expect(:init, fn _api_key -> %{mock: true} end)
       |> expect(:chat, fn _client, _opts ->
-        {:ok, %{
-          "content" => [
-            %{
-              "type" => "text",
-              "text" => ~s({"has_pii": true, "categories": ["financial"], "explanation": "PDF contains financial information"})
-            }
-          ]
-        }}
+        {:ok,
+         %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 ~s({"has_pii": true, "categories": ["financial"], "explanation": "PDF contains financial information"})
+             }
+           ]
+         }}
       end)
 
       result = ClaudeService.analyze_pii_multimodal(text, nil, pdf_data)
@@ -163,7 +172,8 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
   describe "private helpers" do
     test "extract_json_from_text works with valid JSON" do
       # Test the functionality directly with an example
-      text_with_json = "Some text before {\"has_pii\": true, \"categories\": [\"email\"]} and after"
+      text_with_json =
+        "Some text before {\"has_pii\": true, \"categories\": [\"email\"]} and after"
 
       # Create a function to test the private function
       test_extract_json = fn text ->

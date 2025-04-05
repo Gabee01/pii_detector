@@ -145,11 +145,14 @@ defmodule PIIDetector.AI.ClaudeService do
 
         # Validate the image data is not HTML (possible redirect response)
         if String.starts_with?(image_data.data, "PCFET0NUWV") ||
-           String.starts_with?(image_data.data, "PGh0bWw") ||
-           String.starts_with?(image_data.data, "PHhtbC") ||
-           String.starts_with?(image_data.data, "<!DOCTYPE") ||
-           String.starts_with?(image_data.data, "<html") do
-          Logger.error("Invalid image data detected: appears to be HTML/XML content rather than an image")
+             String.starts_with?(image_data.data, "PGh0bWw") ||
+             String.starts_with?(image_data.data, "PHhtbC") ||
+             String.starts_with?(image_data.data, "<!DOCTYPE") ||
+             String.starts_with?(image_data.data, "<html") do
+          Logger.error(
+            "Invalid image data detected: appears to be HTML/XML content rather than an image"
+          )
+
           content
         else
           content ++
@@ -175,11 +178,14 @@ defmodule PIIDetector.AI.ClaudeService do
 
         # Validate the PDF data is not HTML (possible redirect response)
         if String.starts_with?(pdf_data.data, "PCFET0NUWV") ||
-           String.starts_with?(pdf_data.data, "PGh0bWw") ||
-           String.starts_with?(pdf_data.data, "PHhtbC") ||
-           String.starts_with?(pdf_data.data, "<!DOCTYPE") ||
-           String.starts_with?(pdf_data.data, "<html") do
-          Logger.error("Invalid PDF data detected: appears to be HTML/XML content rather than a PDF")
+             String.starts_with?(pdf_data.data, "PGh0bWw") ||
+             String.starts_with?(pdf_data.data, "PHhtbC") ||
+             String.starts_with?(pdf_data.data, "<!DOCTYPE") ||
+             String.starts_with?(pdf_data.data, "<html") do
+          Logger.error(
+            "Invalid PDF data detected: appears to be HTML/XML content rather than a PDF"
+          )
+
           content
         else
           content ++

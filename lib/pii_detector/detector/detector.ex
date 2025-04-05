@@ -101,7 +101,8 @@ defmodule PIIDetector.Detector do
     case file["mimetype"] do
       "image/" <> _type -> process_image_file(file, {image_acc, pdf_acc})
       "application/pdf" -> process_pdf_file(file, {image_acc, pdf_acc})
-      _ -> {image_acc, pdf_acc} # Ignore other file types
+      # Ignore other file types
+      _ -> {image_acc, pdf_acc}
     end
   end
 

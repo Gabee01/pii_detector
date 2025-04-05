@@ -55,7 +55,14 @@ defmodule PIIDetector.Platform.SlackTest do
         {:ok, %{"ok" => true}}
       end)
 
-      result = Slack.post_ephemeral_message("C12345", "U12345", "Hello, just for you!", "xoxb-test-token")
+      result =
+        Slack.post_ephemeral_message(
+          "C12345",
+          "U12345",
+          "Hello, just for you!",
+          "xoxb-test-token"
+        )
+
       assert result == {:ok, %{"ok" => true}}
     end
   end

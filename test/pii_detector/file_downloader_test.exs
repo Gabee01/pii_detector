@@ -70,11 +70,12 @@ defmodule PIIDetector.FileDownloaderTest do
 
       mock_req = fn url, _opts ->
         if url == "https://example.com/redirecting.jpg" do
-          {:ok, %{
-            status: 302,
-            headers: [{"Location", "https://example.com/actual.jpg"}],
-            body: "Redirecting..."
-          }}
+          {:ok,
+           %{
+             status: 302,
+             headers: [{"Location", "https://example.com/actual.jpg"}],
+             body: "Redirecting..."
+           }}
         else
           send(test_pid, {:redirect_followed, url})
           {:ok, %{status: 200, body: "real_image_data"}}
@@ -215,7 +216,8 @@ defmodule PIIDetector.FileDownloaderTest do
         {:error, "Download failed"}
       end
 
-      assert {:error, "Download failed"} = FileDownloader.process_image(file, req_module: mock_req)
+      assert {:error, "Download failed"} =
+               FileDownloader.process_image(file, req_module: mock_req)
     end
   end
 

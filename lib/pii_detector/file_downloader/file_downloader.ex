@@ -85,9 +85,10 @@ defmodule PIIDetector.FileDownloader do
 
       {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
         # Get the location header
-        location = Enum.find_value(headers, fn {key, value} ->
-          if String.downcase(key) == "location", do: value
-        end)
+        location =
+          Enum.find_value(headers, fn {key, value} ->
+            if String.downcase(key) == "location", do: value
+          end)
 
         if location do
           Logger.debug("Following redirect to: #{location}")
@@ -119,9 +120,10 @@ defmodule PIIDetector.FileDownloader do
 
       {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
         # Get the location header
-        location = Enum.find_value(headers, fn {key, value} ->
-          if String.downcase(key) == "location", do: value
-        end)
+        location =
+          Enum.find_value(headers, fn {key, value} ->
+            if String.downcase(key) == "location", do: value
+          end)
 
         if location do
           Logger.debug("Following redirect to: #{location}")
