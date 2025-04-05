@@ -81,8 +81,7 @@ defmodule PIIDetector.MixProject do
       # Testing and quality
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: :test},
-      {:mox, "~> 1.0", only: :test},
-      {:meck, "~> 0.9.2", only: :test}
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 
