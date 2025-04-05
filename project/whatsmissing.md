@@ -1,6 +1,6 @@
 Things to finish/try before delivery:
 - [ ] Find user email on slack and notify notion deletion
-- [ ] support Notion database detection
+- [x] support Notion database detection
 - [ ] Files support (Image and PDF at least)
 - [ ] Fly.io envs and production tests
   - [ ] Test slack message with text PII is deleted and user is notified 

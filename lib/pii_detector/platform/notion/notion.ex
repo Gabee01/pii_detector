@@ -417,42 +417,13 @@ defmodule PIIDetector.Platform.Notion do
 
       handler ->
         result = handler.(type, block)
-
-        # Process any nested blocks if they exist
-        case Map.get(block, "children") do
-          nil ->
-            result
-
-          children when is_list(children) ->
-            # Recursively process nested blocks and join with parent content
-            Logger.debug("Processing #{length(children)} nested blocks for block type: #{type}")
-            nested_content = extract_content_from_blocks(children)
-
-            case nested_content do
-              {:ok, ""} ->
-                Logger.debug("No content extracted from nested blocks")
-                result
-
-              {:ok, content} ->
-                Logger.debug(
-                  "Extracted content from nested blocks: #{String.slice(content, 0, 100)}#{if String.length(content) > 100, do: "...", else: ""}"
-                )
-
-                if result, do: "#{result}\n#{content}", else: content
-
-              error ->
-                Logger.warning("Error extracting content from nested blocks: #{inspect(error)}")
-                result
-            end
-
-          _ ->
-            result
-        end
+        maybe_add_nested_content(result, block, type)
     end
   end
 
   defp extract_text_from_block(_), do: nil
 
+  # Helper functions for text extraction
   defp extract_rich_text_list(rich_text_list) when is_list(rich_text_list) do
     Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
   end
@@ -461,6 +432,43 @@ defmodule PIIDetector.Platform.Notion do
 
   defp extract_rich_text_content(%{"plain_text" => text}), do: text
   defp extract_rich_text_content(_), do: ""
+
+  # Handle nested blocks content
+  defp maybe_add_nested_content(result, block, type) do
+    case Map.get(block, "children") do
+      nil ->
+        result
+
+      children when is_list(children) ->
+        # Recursively process nested blocks and join with parent content
+        Logger.debug("Processing #{length(children)} nested blocks for block type: #{type}")
+        nested_content = extract_content_from_blocks(children)
+        combine_parent_and_nested_content(result, nested_content)
+
+      _ ->
+        result
+    end
+  end
+
+  # Combine parent and nested content
+  defp combine_parent_and_nested_content(parent_result, nested_content) do
+    case nested_content do
+      {:ok, ""} ->
+        Logger.debug("No content extracted from nested blocks")
+        parent_result
+
+      {:ok, content} ->
+        Logger.debug(
+          "Extracted content from nested blocks: #{String.slice(content, 0, 100)}#{if String.length(content) > 100, do: "...", else: ""}"
+        )
+
+        if parent_result, do: "#{parent_result}\n#{content}", else: content
+
+      error ->
+        Logger.warning("Error extracting content from nested blocks: #{inspect(error)}")
+        parent_result
+    end
+  end
 
   defp extract_text_from_database_entry(%{"properties" => properties}) do
     properties
@@ -516,68 +524,73 @@ defmodule PIIDetector.Platform.Notion do
     Logger.debug("Fetching nested blocks from #{length(blocks)} blocks")
 
     Enum.reduce(blocks, [], fn block, acc ->
-      # Process this block
-      current_block =
-        if block["has_children"] == true && block["type"] != "child_page" do
-          # Fetch children blocks
-          Logger.debug(
-            "Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}"
-          )
-
-          case notion_api().get_blocks(block["id"], nil, []) do
-            {:ok, child_blocks} ->
-              Logger.debug(
-                "Found #{length(child_blocks)} child blocks for block id: #{block["id"]}"
-              )
-
-              # Recursively fetch nested blocks of children
-              nested_child_blocks = fetch_nested_blocks(child_blocks)
-              # Return this block with its nested blocks
-              Map.put(block, "children", nested_child_blocks)
-
-            {:error, reason} ->
-              Logger.warning(
-                "Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}"
-              )
-
-              # On error, keep the original block
-              block
-
-            unexpected ->
-              Logger.warning(
-                "Unexpected response when fetching child blocks: #{inspect(unexpected)}"
-              )
-
-              block
-          end
-        else
-          block
-        end
-
-      # Add the processed block to the accumulator
-      [current_block | acc]
+      processed_block = process_block_with_children(block)
+      [processed_block | acc]
     end)
     |> Enum.reverse()
   end
 
+  # Process a single block, fetching children if needed
+  defp process_block_with_children(block) do
+    if should_fetch_children?(block) do
+      fetch_and_add_children(block)
+    else
+      block
+    end
+  end
+
+  # Determine if we should fetch children for this block
+  defp should_fetch_children?(block) do
+    block["has_children"] == true && block["type"] != "child_page"
+  end
+
+  # Fetch children blocks and add them to the parent block
+  defp fetch_and_add_children(block) do
+    Logger.debug("Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}")
+
+    case notion_api().get_blocks(block["id"], nil, []) do
+      {:ok, child_blocks} ->
+        add_children_to_block(block, child_blocks)
+
+      {:error, reason} ->
+        Logger.warning(
+          "Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}"
+        )
+        block
+
+      unexpected ->
+        Logger.warning("Unexpected response when fetching child blocks: #{inspect(unexpected)}")
+        block
+    end
+  end
+
+  # Add fetched children to the parent block
+  defp add_children_to_block(block, child_blocks) do
+    Logger.debug("Found #{length(child_blocks)} child blocks for block id: #{block["id"]}")
+    # Recursively fetch nested blocks of children
+    nested_child_blocks = fetch_nested_blocks(child_blocks)
+    # Return this block with its nested blocks
+    Map.put(block, "children", nested_child_blocks)
+  end
+
   # Extract file objects from blocks
   defp extract_files_from_blocks(blocks) when is_list(blocks) do
-    Enum.flat_map(blocks, fn block ->
-      case block do
-        %{"type" => type} when type in @file_block_types ->
-          # Extract file object from the block
-          file_obj = Map.get(block, type)
-          if file_obj, do: [file_obj], else: []
-
-        %{"has_children" => true, "children" => children} ->
-          # Recursively extract files from child blocks
-          extract_files_from_blocks(children)
-
-        _ ->
-          []
-      end
-    end)
+    Enum.flat_map(blocks, &extract_files_from_block/1)
   end
 
   defp extract_files_from_blocks(_), do: []
+
+  # Extract files from a single block
+  defp extract_files_from_block(%{"type" => type} = block) when type in @file_block_types do
+    # Extract file object from the block
+    file_obj = Map.get(block, type)
+    if file_obj, do: [file_obj], else: []
+  end
+
+  defp extract_files_from_block(%{"has_children" => true, "children" => children}) do
+    # Recursively extract files from child blocks
+    extract_files_from_blocks(children)
+  end
+
+  defp extract_files_from_block(_), do: []
 end

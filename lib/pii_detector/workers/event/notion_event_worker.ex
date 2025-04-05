@@ -19,8 +19,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
   require Logger
 
-  alias PIIDetector.Platform.Notion.PageProcessor
   alias PIIDetector.Platform.Notion.EventDataExtractor
+  alias PIIDetector.Platform.Notion.PageProcessor
 
   @doc """
   Process a Notion webhook event.

@@ -213,6 +213,19 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       # Set up mocks - only page fetch needed since title check happens first
       expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page_with_pii} end)
 
+      # Now we also need to expect get_blocks call
+      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, []} end)
+
+      # And expect extract_page_content call
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Contact john.doe@example.com", []}
+      end)
+
+      # Mock the detector with PII result
+      expect(DetectorMock, :detect_pii, fn _input, _opts ->
+        {:pii_detected, true, ["email"]}
+      end)
+
       # Mock the archive function
       expect(NotionMock, :archive_content, fn _page_id ->
         {:ok, %{"archived" => true}}
