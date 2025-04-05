@@ -14,6 +14,12 @@ config :pii_detector,
 # Configure AI service
 config :pii_detector, :ai_service, PIIDetector.AI.ClaudeService
 
+# Configure Notion API
+config :pii_detector, PIIDetector.Platform.Notion,
+  api_key: {:system, "NOTION_API_KEY"},
+  base_url: "https://api.notion.com/v1",
+  notion_version: "2022-06-28"
+
 # Configures the endpoint
 config :pii_detector, PIIDetectorWeb.Endpoint,
   url: [host: "localhost"],

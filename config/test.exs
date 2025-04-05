@@ -52,3 +52,9 @@ config :pii_detector, :claude_model, "claude-3-haiku-20240307"
 
 # Set up Anthropic client mock
 config :pii_detector, :anthropic_client, PIIDetector.AI.Anthropic.MockClient
+
+# Configure Notion for testing
+config :pii_detector, PIIDetector.Platform.Notion,
+  api_key: "test_api_key_for_testing",
+  base_url: "https://api.notion.com/v1",
+  notion_version: "2022-06-28"

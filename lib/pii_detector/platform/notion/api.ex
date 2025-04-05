@@ -6,24 +6,16 @@ defmodule PIIDetector.Platform.Notion.API do
 
   require Logger
 
+  @default_base_url "https://api.notion.com/v1"
+  @default_notion_version "2022-06-28"
+
   @impl true
   def get_page(page_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_key]
+    with {:ok, token} <- ensure_token(token),
+         {:ok, url, headers} <- prepare_request("/pages/#{page_id}", token, opts) do
+      Logger.debug("Making Notion API request to #{url}")
 
-    if token do
-      url = "#{config()[:base_url]}/pages/#{page_id}"
-
-      headers = [
-        {"Authorization", "Bearer #{token}"},
-        {"Notion-Version", config()[:notion_version]},
-        {"Content-Type", "application/json"}
-      ]
-
-      # Merge default options with any provided options
-      req_options = Keyword.merge(req_options(), opts)
-      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
-
-      case Req.get(url, [headers: headers] ++ req_options) do
+      case Req.get(url, [headers: headers] ++ request_options(opts)) do
         {:ok, %{status: 200, body: body}} ->
           Logger.info("Successfully fetched Notion page: #{page_id}")
           {:ok, body}
@@ -48,30 +40,16 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
-    else
-      Logger.error("No Notion API token available - cannot fetch page: #{page_id}")
-      {:error, "Missing API token"}
     end
   end
 
   @impl true
   def get_blocks(page_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_key]
+    with {:ok, token} <- ensure_token(token),
+         {:ok, url, headers} <- prepare_request("/blocks/#{page_id}/children", token, opts) do
+      Logger.debug("Making Notion API request to #{url}")
 
-    if token do
-      url = "#{config()[:base_url]}/blocks/#{page_id}/children"
-
-      headers = [
-        {"Authorization", "Bearer #{token}"},
-        {"Notion-Version", config()[:notion_version]},
-        {"Content-Type", "application/json"}
-      ]
-
-      # Merge default options with any provided options
-      req_options = Keyword.merge(req_options(), opts)
-      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
-
-      case Req.get(url, [headers: headers] ++ req_options) do
+      case Req.get(url, [headers: headers] ++ request_options(opts)) do
         {:ok, %{status: 200, body: %{"results" => results}}} ->
           Logger.info("Successfully fetched blocks for Notion page: #{page_id}")
           {:ok, results}
@@ -96,30 +74,16 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
-    else
-      Logger.error("No Notion API token available - cannot fetch blocks: #{page_id}")
-      {:error, "Missing API token"}
     end
   end
 
   @impl true
   def get_database_entries(database_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_key]
+    with {:ok, token} <- ensure_token(token),
+         {:ok, url, headers} <- prepare_request("/databases/#{database_id}/query", token, opts) do
+      Logger.debug("Making Notion API request to #{url}")
 
-    if token do
-      url = "#{config()[:base_url]}/databases/#{database_id}/query"
-
-      headers = [
-        {"Authorization", "Bearer #{token}"},
-        {"Notion-Version", config()[:notion_version]},
-        {"Content-Type", "application/json"}
-      ]
-
-      # Merge default options with any provided options
-      req_options = Keyword.merge(req_options(), opts)
-      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
-
-      case Req.post(url, [headers: headers, json: %{}] ++ req_options) do
+      case Req.post(url, [headers: headers, json: %{}] ++ request_options(opts)) do
         {:ok, %{status: 200, body: %{"results" => results}}} ->
           Logger.info("Successfully fetched database entries for Notion database: #{database_id}")
           {:ok, results}
@@ -139,37 +103,20 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
-    else
-      Logger.error(
-        "No Notion API token available - cannot fetch database entries: #{database_id}"
-      )
-
-      {:error, "Missing API token"}
     end
   end
 
   @impl true
   def archive_page(page_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_key]
-
-    if token do
-      url = "#{config()[:base_url]}/pages/#{page_id}"
-
-      headers = [
-        {"Authorization", "Bearer #{token}"},
-        {"Notion-Version", config()[:notion_version]},
-        {"Content-Type", "application/json"}
-      ]
-
+    with {:ok, token} <- ensure_token(token),
+         {:ok, url, headers} <- prepare_request("/pages/#{page_id}", token, opts) do
       payload = %{
         "archived" => true
       }
 
-      # Merge default options with any provided options
-      req_options = Keyword.merge(req_options(), opts)
-      Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+      Logger.debug("Making Notion API request to #{url}")
 
-      case Req.patch(url, [headers: headers, json: payload] ++ req_options) do
+      case Req.patch(url, [headers: headers, json: payload] ++ request_options(opts)) do
         {:ok, %{status: 200, body: body}} ->
           Logger.info("Successfully archived Notion page: #{page_id}")
           {:ok, body}
@@ -186,9 +133,6 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
-    else
-      Logger.error("No Notion API token available - cannot archive page: #{page_id}")
-      {:error, "Missing API token"}
     end
   end
 
@@ -198,31 +142,53 @@ defmodule PIIDetector.Platform.Notion.API do
     archive_page(page_id, token, opts)
   end
 
-  defp config do
-    config = Application.get_env(:pii_detector, PIIDetector.Platform.Notion, %{})
+  # Private helper functions
 
-    # Convert to map if it's a keyword list
-    config = if is_list(config), do: Map.new(config), else: config
+  defp ensure_token(nil) do
+    case get_api_key_from_config() do
+      nil ->
+        Logger.error("No Notion API key available")
+        {:error, "Missing API token"}
 
-    # Get token from environment variable if it's missing in config
-    api_key =
-      Map.get(config, :api_key) ||
-        System.get_env("NOTION_API_KEY")
-
-    if api_key do
-      token_preview = String.slice(api_key, 0, 4) <> "..." <> String.slice(api_key, -4, 4)
-      Logger.debug("Using Notion API key: #{token_preview}")
-      Map.put(config, :api_key, api_key)
-    else
-      Logger.error(
-        "Notion API key not found! Check environment variable NOTION_API_KEY"
-      )
-
-      Map.put(config, :api_key, nil)
+      token ->
+        {:ok, token}
     end
   end
 
-  defp req_options do
-    Application.get_env(:pii_detector, :req_options, [])
+  defp ensure_token(token) when is_binary(token), do: {:ok, token}
+
+  defp prepare_request(path, token, opts) do
+    base_url = Keyword.get(opts, :base_url) || get_base_url_from_config()
+    notion_version = Keyword.get(opts, :notion_version) || get_notion_version_from_config()
+
+    url = base_url <> path
+
+    headers = [
+      {"Authorization", "Bearer #{token}"},
+      {"Notion-Version", notion_version},
+      {"Content-Type", "application/json"}
+    ]
+
+    {:ok, url, headers}
+  end
+
+  defp request_options(opts) do
+    default_opts = Application.get_env(:pii_detector, :req_options, [])
+    Keyword.merge(default_opts, Keyword.drop(opts, [:base_url, :notion_version]))
+  end
+
+  defp get_api_key_from_config do
+    Application.get_env(:pii_detector, PIIDetector.Platform.Notion)[:api_key] ||
+      System.get_env("NOTION_API_KEY")
+  end
+
+  defp get_base_url_from_config do
+    Application.get_env(:pii_detector, PIIDetector.Platform.Notion)[:base_url] ||
+      @default_base_url
+  end
+
+  defp get_notion_version_from_config do
+    Application.get_env(:pii_detector, PIIDetector.Platform.Notion)[:notion_version] ||
+      @default_notion_version
   end
 end
