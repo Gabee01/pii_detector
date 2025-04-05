@@ -8,7 +8,7 @@ defmodule PIIDetector.Platform.Notion.API do
 
   @impl true
   def get_page(page_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_token]
+    token = token || config()[:api_key]
 
     if token do
       url = "#{config()[:base_url]}/pages/#{page_id}"
@@ -56,7 +56,7 @@ defmodule PIIDetector.Platform.Notion.API do
 
   @impl true
   def get_blocks(page_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_token]
+    token = token || config()[:api_key]
 
     if token do
       url = "#{config()[:base_url]}/blocks/#{page_id}/children"
@@ -104,7 +104,7 @@ defmodule PIIDetector.Platform.Notion.API do
 
   @impl true
   def get_database_entries(database_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_token]
+    token = token || config()[:api_key]
 
     if token do
       url = "#{config()[:base_url]}/databases/#{database_id}/query"
@@ -150,7 +150,7 @@ defmodule PIIDetector.Platform.Notion.API do
 
   @impl true
   def archive_page(page_id, token \\ nil, opts \\ []) do
-    token = token || config()[:api_token]
+    token = token || config()[:api_key]
 
     if token do
       url = "#{config()[:base_url]}/pages/#{page_id}"
@@ -204,22 +204,21 @@ defmodule PIIDetector.Platform.Notion.API do
     # Convert to map if it's a keyword list
     config = if is_list(config), do: Map.new(config), else: config
 
-    # Try to get token from both possible environment variables if it's missing in config
-    api_token =
-      Map.get(config, :api_token) ||
-        System.get_env("NOTION_API_TOKEN") ||
+    # Get token from environment variable if it's missing in config
+    api_key =
+      Map.get(config, :api_key) ||
         System.get_env("NOTION_API_KEY")
 
-    if api_token do
-      token_preview = String.slice(api_token, 0, 4) <> "..." <> String.slice(api_token, -4, 4)
-      Logger.debug("Using Notion API token: #{token_preview}")
-      Map.put(config, :api_token, api_token)
+    if api_key do
+      token_preview = String.slice(api_key, 0, 4) <> "..." <> String.slice(api_key, -4, 4)
+      Logger.debug("Using Notion API key: #{token_preview}")
+      Map.put(config, :api_key, api_key)
     else
       Logger.error(
-        "Notion API token not found! Check environment variables NOTION_API_TOKEN or NOTION_API_KEY"
+        "Notion API key not found! Check environment variable NOTION_API_KEY"
       )
 
-      Map.put(config, :api_token, nil)
+      Map.put(config, :api_key, nil)
     end
   end
 
