@@ -74,9 +74,11 @@ defmodule PIIDetector.Detector do
       "image/" <> _type ->
         # For images, we'll process them separately with multimodal API
         "Image file: #{file["name"] || "unnamed"}"
+
       "application/pdf" ->
         # For PDFs, we'll process them separately with multimodal API
         "PDF file: #{file["name"] || "unnamed"}"
+
       _ ->
         # Ignore other file types for now
         ""
@@ -87,25 +89,35 @@ defmodule PIIDetector.Detector do
 
   # Process files for multimodal analysis and return image and PDF data
   defp process_files_for_multimodal(files) when is_list(files) do
-    Enum.reduce(files, {nil, nil}, fn file, {image_acc, pdf_acc} ->
-      case file["mimetype"] do
-        "image/" <> _type ->
-          case file_downloader().process_image(file, []) do
-            {:ok, image_data} -> {image_data, pdf_acc}
-            _ -> {image_acc, pdf_acc}
-          end
-        "application/pdf" ->
-          case file_downloader().process_pdf(file, []) do
-            {:ok, pdf_data} -> {image_acc, pdf_data}
-            _ -> {image_acc, pdf_acc}
-          end
-        _ ->
-          {image_acc, pdf_acc} # Ignore other file types
-      end
+    Enum.reduce(files, {nil, nil}, fn file, acc ->
+      process_file(file, acc)
     end)
   end
 
   defp process_files_for_multimodal(_), do: {nil, nil}
+
+  # Helper to process a single file based on its mimetype
+  defp process_file(file, {image_acc, pdf_acc}) do
+    case file["mimetype"] do
+      "image/" <> _type -> process_image_file(file, {image_acc, pdf_acc})
+      "application/pdf" -> process_pdf_file(file, {image_acc, pdf_acc})
+      _ -> {image_acc, pdf_acc} # Ignore other file types
+    end
+  end
+
+  defp process_image_file(file, {_image_acc, pdf_acc}) do
+    case file_downloader().process_image(file, []) do
+      {:ok, image_data} -> {image_data, pdf_acc}
+      _ -> {nil, pdf_acc}
+    end
+  end
+
+  defp process_pdf_file(file, {image_acc, _pdf_acc}) do
+    case file_downloader().process_pdf(file, []) do
+      {:ok, pdf_data} -> {image_acc, pdf_data}
+      _ -> {image_acc, nil}
+    end
+  end
 
   defp ai_service do
     Application.get_env(:pii_detector, :ai_service, PIIDetector.AI.ClaudeService)

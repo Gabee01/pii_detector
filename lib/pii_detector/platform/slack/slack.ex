@@ -8,6 +8,8 @@ defmodule PIIDetector.Platform.Slack do
   require Logger
 
   alias PIIDetector.Platform.Slack.API
+  alias PIIDetector.Platform.Slack.Bot
+  alias PIIDetector.Platform.Slack.MessageFormatter
 
   @doc """
   Starts the Slack bot.
@@ -15,7 +17,7 @@ defmodule PIIDetector.Platform.Slack do
   """
   def start_bot do
     if bot_enabled?() do
-      PIIDetector.Platform.Slack.Bot.start_link([])
+      bot_module().start_link([])
     else
       Logger.info("Slack bot is disabled, skipping startup")
       {:ok, :bot_disabled}
@@ -59,7 +61,7 @@ defmodule PIIDetector.Platform.Slack do
   """
   @impl true
   def format_pii_notification(message_content) do
-    PIIDetector.Platform.Slack.MessageFormatter.format_pii_notification(message_content)
+    MessageFormatter.format_pii_notification(message_content)
   end
 
   # Private helper functions
@@ -70,5 +72,9 @@ defmodule PIIDetector.Platform.Slack do
 
   defp bot_enabled? do
     Application.get_env(:pii_detector, :start_slack_bot, true)
+  end
+
+  defp bot_module do
+    Application.get_env(:pii_detector, :slack_bot_module, Bot)
   end
 end

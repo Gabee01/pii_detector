@@ -45,3 +45,10 @@ config :pii_detector, :slack_api_module, PIIDetector.Platform.Slack.APIMock
 
 # Configure AI service for testing
 config :pii_detector, :ai_service, PIIDetector.AI.AIServiceMock
+
+# Configure Claude API for testing
+config :pii_detector, :anthropic_api_key, "test-api-key"
+config :pii_detector, :claude_model, "claude-3-haiku-20240307"
+
+# Set up Anthropic client mock
+config :pii_detector, :anthropic_client, PIIDetector.AI.Anthropic.MockClient

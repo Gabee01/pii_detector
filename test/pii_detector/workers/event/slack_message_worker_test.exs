@@ -2,9 +2,9 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorkerTest do
   use PIIDetector.DataCase
   import Mox
 
-  alias PIIDetector.Workers.Event.SlackMessageWorker
-  alias PIIDetector.Platform.Slack.APIMock
   alias PIIDetector.DetectorMock
+  alias PIIDetector.Platform.Slack.APIMock
+  alias PIIDetector.Workers.Event.SlackMessageWorker
 
   # Make sure our mocks verify expectations correctly
   setup :verify_on_exit!
@@ -102,7 +102,9 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorkerTest do
       }
 
       job = %Oban.Job{args: args}
-      assert {:error, "Failed to delete message: \"Failed to delete message\""} = SlackMessageWorker.perform(job)
+
+      assert {:error, "Failed to delete message: \"Failed to delete message\""} =
+               SlackMessageWorker.perform(job)
     end
   end
 end

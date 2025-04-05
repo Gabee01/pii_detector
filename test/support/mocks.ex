@@ -16,6 +16,9 @@ defmodule PIIDetector.TestMocks do
   # Mock for the AI service
   defmock(PIIDetector.AI.AIServiceMock, for: PIIDetector.AI.Behaviour)
 
+  # Mock for the Anthropic client
+  defmock(PIIDetector.AI.Anthropic.ClientMock, for: PIIDetector.AI.Anthropic.Behaviour)
+
   # Mock for the FileDownloader
   defmock(PIIDetector.FileDownloaderMock, for: PIIDetector.FileDownloader.Behaviour)
 end

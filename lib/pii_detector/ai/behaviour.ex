@@ -15,7 +15,11 @@ defmodule PIIDetector.AI.Behaviour do
   Analyzes text and visual content for personally identifiable information (PII).
   Uses the multimodal capabilities of Claude to analyze images and PDFs.
   """
-  @callback analyze_pii_multimodal(text :: String.t(), image_data :: map() | nil, pdf_data :: map() | nil) ::
+  @callback analyze_pii_multimodal(
+              text :: String.t(),
+              image_data :: map() | nil,
+              pdf_data :: map() | nil
+            ) ::
               {:ok, %{has_pii: boolean, categories: list(String.t()), explanation: String.t()}}
               | {:error, String.t()}
 end

@@ -32,6 +32,7 @@ defmodule PIIDetector.Platform.Slack.MessageFormatterTest do
           %{"name" => "personal_data.jpg"}
         ]
       }
+
       result = MessageFormatter.format_pii_notification(original_content)
 
       assert result =~ "Your message also contained files: confidential.pdf, personal_data.jpg"
@@ -45,6 +46,7 @@ defmodule PIIDetector.Platform.Slack.MessageFormatterTest do
           %{"name" => "personal_data.jpg"}
         ]
       }
+
       result = MessageFormatter.format_pii_notification(original_content)
 
       assert result =~ "Your message also contained files: unnamed file, personal_data.jpg"

@@ -52,7 +52,8 @@ defmodule PIIDetector.AITest do
 
       AIServiceMock
       |> expect(:analyze_pii, fn ^text ->
-        {:ok, %{has_pii: true, categories: ["credit_card"], explanation: "Credit card found in text."}}
+        {:ok,
+         %{has_pii: true, categories: ["credit_card"], explanation: "Credit card found in text."}}
       end)
 
       assert {:ok, result} = AI.analyze_pii(text)
@@ -77,6 +78,7 @@ defmodule PIIDetector.AITest do
   describe "analyze_pii_multimodal/3" do
     test "correctly identifies PII in image files" do
       text = "Check out this image"
+
       image_data = %{
         data: Base.encode64("fake_image_data"),
         mimetype: "image/jpeg",
@@ -95,6 +97,7 @@ defmodule PIIDetector.AITest do
 
     test "correctly identifies PII in PDF files" do
       text = "Check out this PDF"
+
       pdf_data = %{
         data: Base.encode64("fake_pdf_data"),
         mimetype: "application/pdf",
@@ -103,7 +106,8 @@ defmodule PIIDetector.AITest do
 
       AIServiceMock
       |> expect(:analyze_pii_multimodal, fn ^text, nil, ^pdf_data ->
-        {:ok, %{has_pii: true, categories: ["financial"], explanation: "Financial data found in PDF."}}
+        {:ok,
+         %{has_pii: true, categories: ["financial"], explanation: "Financial data found in PDF."}}
       end)
 
       assert {:ok, result} = AI.analyze_pii_multimodal(text, nil, pdf_data)

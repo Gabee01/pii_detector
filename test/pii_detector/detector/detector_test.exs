@@ -2,10 +2,10 @@ defmodule PIIDetector.DetectorTest do
   use ExUnit.Case, async: false
   import Mox
 
-  alias PIIDetector.Detector
   alias PIIDetector.AI.AIServiceMock
-  alias PIIDetector.FileDownloaderMock
+  alias PIIDetector.Detector
   alias PIIDetector.DetectorMock
+  alias PIIDetector.FileDownloaderMock
 
   # Ensure mocks are verified when the test exits
   setup :verify_on_exit!
@@ -28,7 +28,9 @@ defmodule PIIDetector.DetectorTest do
       AIServiceMock
       |> expect(:analyze_pii, fn text ->
         assert String.contains?(text, "john.doe@example.com")
-        {:ok, %{has_pii: true, categories: ["email"], explanation: "Text contains an email address."}}
+
+        {:ok,
+         %{has_pii: true, categories: ["email"], explanation: "Text contains an email address."}}
       end)
 
       content = %{
@@ -46,7 +48,9 @@ defmodule PIIDetector.DetectorTest do
       AIServiceMock
       |> expect(:analyze_pii, fn text ->
         assert String.contains?(text, "555-123-4567")
-        {:ok, %{has_pii: true, categories: ["phone"], explanation: "Text contains a phone number."}}
+
+        {:ok,
+         %{has_pii: true, categories: ["phone"], explanation: "Text contains a phone number."}}
       end)
 
       content = %{
@@ -70,7 +74,9 @@ defmodule PIIDetector.DetectorTest do
       AIServiceMock
       |> expect(:analyze_pii, fn text ->
         assert String.contains?(text, "test@example.com")
-        {:ok, %{has_pii: true, categories: ["email"], explanation: "Text contains an email address."}}
+
+        {:ok,
+         %{has_pii: true, categories: ["email"], explanation: "Text contains an email address."}}
       end)
 
       content = %{
@@ -106,7 +112,13 @@ defmodule PIIDetector.DetectorTest do
       AIServiceMock
       |> expect(:analyze_pii, fn text ->
         assert String.contains?(text, "4111 1111 1111 1111")
-        {:ok, %{has_pii: true, categories: ["credit_card"], explanation: "Text contains a credit card number."}}
+
+        {:ok,
+         %{
+           has_pii: true,
+           categories: ["credit_card"],
+           explanation: "Text contains a credit card number."
+         }}
       end)
 
       content = %{
@@ -126,11 +138,12 @@ defmodule PIIDetector.DetectorTest do
         assert file["name"] == "pii_test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
-        {:ok, %{
-          data: Base.encode64("fake_image_data"),
-          mimetype: "image/jpeg",
-          name: "pii_test_image.jpg"
-        }}
+        {:ok,
+         %{
+           data: Base.encode64("fake_image_data"),
+           mimetype: "image/jpeg",
+           name: "pii_test_image.jpg"
+         }}
       end)
 
       # Set up expectation for AI service
@@ -141,7 +154,12 @@ defmodule PIIDetector.DetectorTest do
         assert image_data.mimetype =~ "image/jpeg"
         assert image_data.data == Base.encode64("fake_image_data")
 
-        {:ok, %{has_pii: true, categories: ["name"], explanation: "Image contains personal information."}}
+        {:ok,
+         %{
+           has_pii: true,
+           categories: ["name"],
+           explanation: "Image contains personal information."
+         }}
       end)
 
       # Create a mock file with PII in the name
@@ -169,11 +187,12 @@ defmodule PIIDetector.DetectorTest do
         assert file["name"] == "pii_financial.pdf"
         assert file["mimetype"] == "application/pdf"
 
-        {:ok, %{
-          data: Base.encode64("fake_pdf_data"),
-          mimetype: "application/pdf",
-          name: "pii_financial.pdf"
-        }}
+        {:ok,
+         %{
+           data: Base.encode64("fake_pdf_data"),
+           mimetype: "application/pdf",
+           name: "pii_financial.pdf"
+         }}
       end)
 
       # Set up expectation for AI service
@@ -184,7 +203,12 @@ defmodule PIIDetector.DetectorTest do
         assert pdf_data.mimetype == "application/pdf"
         assert pdf_data.data == Base.encode64("fake_pdf_data")
 
-        {:ok, %{has_pii: true, categories: ["financial"], explanation: "PDF contains financial information."}}
+        {:ok,
+         %{
+           has_pii: true,
+           categories: ["financial"],
+           explanation: "PDF contains financial information."
+         }}
       end)
 
       # Create a mock file with PII in the name
@@ -212,11 +236,12 @@ defmodule PIIDetector.DetectorTest do
         assert file["name"] == "normal_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
-        {:ok, %{
-          data: Base.encode64("fake_normal_image_data"),
-          mimetype: "image/jpeg",
-          name: "normal_image.jpg"
-        }}
+        {:ok,
+         %{
+           data: Base.encode64("fake_normal_image_data"),
+           mimetype: "image/jpeg",
+           name: "normal_image.jpg"
+         }}
       end)
 
       # Set up expectation for AI service
@@ -287,11 +312,12 @@ defmodule PIIDetector.DetectorTest do
         assert file["name"] == "pii_test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
-        {:ok, %{
-          data: Base.encode64("fake_image_data"),
-          mimetype: "image/jpeg",
-          name: "pii_test_image.jpg"
-        }}
+        {:ok,
+         %{
+           data: Base.encode64("fake_image_data"),
+           mimetype: "image/jpeg",
+           name: "pii_test_image.jpg"
+         }}
       end)
 
       # Set up expectation for AI service
@@ -302,7 +328,12 @@ defmodule PIIDetector.DetectorTest do
         assert image_data.mimetype =~ "image/jpeg"
         assert image_data.data == Base.encode64("fake_image_data")
 
-        {:ok, %{has_pii: true, categories: ["name"], explanation: "Image contains personal information."}}
+        {:ok,
+         %{
+           has_pii: true,
+           categories: ["name"],
+           explanation: "Image contains personal information."
+         }}
       end)
 
       # Create a mock file with PII in the name

@@ -9,15 +9,16 @@ defmodule PIIDetector.Platform.Slack.MessageFormatter do
   """
   def format_pii_notification(original_content) do
     # Build file info text
-    file_info = if original_content.files && original_content.files != [] do
-      file_names = original_content.files
-                 |> Enum.map(fn file -> file["name"] || "unnamed file" end)
-                 |> Enum.join(", ")
+    file_info =
+      if original_content.files && original_content.files != [] do
+        file_names =
+          original_content.files
+          |> Enum.map_join(", ", fn file -> file["name"] || "unnamed file" end)
 
-      "\nYour message also contained files: #{file_names}"
-    else
-      ""
-    end
+        "\nYour message also contained files: #{file_names}"
+      else
+        ""
+      end
 
     """
     :warning: Your message was removed because it contained personal identifiable information (PII).

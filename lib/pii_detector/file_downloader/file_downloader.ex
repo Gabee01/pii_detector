@@ -29,11 +29,13 @@ defmodule PIIDetector.FileDownloader do
         # Convert to base64 for Claude API
         base64_data = Base.encode64(image_data)
         # Return processed data
-        {:ok, %{
-          data: base64_data,
-          mimetype: file["mimetype"],
-          name: file["name"] || "unnamed"
-        }}
+        {:ok,
+         %{
+           data: base64_data,
+           mimetype: file["mimetype"],
+           name: file["name"] || "unnamed"
+         }}
+
       {:error, reason} = error ->
         Logger.error("Failed to process image: #{inspect(reason)}")
         error
@@ -52,11 +54,13 @@ defmodule PIIDetector.FileDownloader do
         # Convert to base64 for Claude API
         base64_data = Base.encode64(pdf_data)
         # Return processed data
-        {:ok, %{
-          data: base64_data,
-          mimetype: "application/pdf",
-          name: file["name"] || "unnamed"
-        }}
+        {:ok,
+         %{
+           data: base64_data,
+           mimetype: "application/pdf",
+           name: file["name"] || "unnamed"
+         }}
+
       {:error, reason} = error ->
         Logger.error("Failed to process PDF: #{inspect(reason)}")
         error
@@ -65,7 +69,8 @@ defmodule PIIDetector.FileDownloader do
 
   # Private helper functions
 
-  defp download_file_with_module(%{"url_private" => url, "token" => token} = _file, req_module) when is_function(req_module) do
+  defp download_file_with_module(%{"url_private" => url, "token" => token} = _file, req_module)
+       when is_function(req_module) do
     # Use Req to download file with Slack token for authentication
     headers = [
       {"Authorization", "Bearer #{token}"}
@@ -74,8 +79,10 @@ defmodule PIIDetector.FileDownloader do
     case req_module.(url, headers: headers) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
+
       {:ok, %{status: status}} ->
         {:error, "Failed to download file, status: #{status}"}
+
       {:error, error} ->
         {:error, error}
     end
@@ -90,8 +97,10 @@ defmodule PIIDetector.FileDownloader do
     case req_module.get(url, headers: headers) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
+
       {:ok, %{status: status}} ->
         {:error, "Failed to download file, status: #{status}"}
+
       {:error, error} ->
         {:error, error}
     end

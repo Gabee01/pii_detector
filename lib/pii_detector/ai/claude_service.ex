@@ -11,8 +11,8 @@ defmodule PIIDetector.AI.ClaudeService do
   """
   @impl true
   def analyze_pii(text) do
-    # Initialize Anthropix client with API key
-    client = anthropix_module().init(get_api_key())
+    # Initialize Anthropic client with API key
+    client = anthropic_client().init(get_api_key())
 
     # Create the messages for Claude
     messages = [
@@ -25,8 +25,8 @@ defmodule PIIDetector.AI.ClaudeService do
     # Get the model name from config or environment variables
     model = get_model_name()
 
-    # Send request to Claude through Anthropix
-    case anthropix_module().chat(client,
+    # Send request to Claude through Anthropic client
+    case anthropic_client().chat(client,
            model: model,
            messages: messages,
            system: pii_detection_system_prompt(),
@@ -48,8 +48,8 @@ defmodule PIIDetector.AI.ClaudeService do
   """
   @impl true
   def analyze_pii_multimodal(text, image_data, pdf_data) do
-    # Initialize Anthropix client with API key
-    client = anthropix_module().init(get_api_key())
+    # Initialize Anthropic client with API key
+    client = anthropic_client().init(get_api_key())
 
     # Build content array with text and images/PDFs for multimodal request
     content = build_multimodal_content(text, image_data, pdf_data)
@@ -65,8 +65,8 @@ defmodule PIIDetector.AI.ClaudeService do
     # Get the model name from config or environment variables
     model = get_model_name()
 
-    # Send request to Claude through Anthropix
-    case anthropix_module().chat(client,
+    # Send request to Claude through Anthropic client
+    case anthropic_client().chat(client,
            model: model,
            messages: messages,
            system: pii_detection_system_prompt(),
@@ -84,8 +84,8 @@ defmodule PIIDetector.AI.ClaudeService do
 
   # Private helper functions
 
-  defp anthropix_module do
-    Application.get_env(:pii_detector, :anthropix_module, Anthropix)
+  defp anthropic_client do
+    Application.get_env(:pii_detector, :anthropic_client, PIIDetector.AI.Anthropic.Client)
   end
 
   defp get_api_key do
@@ -139,40 +139,44 @@ defmodule PIIDetector.AI.ClaudeService do
     ]
 
     # Add image if present
-    content = if image_data do
-      Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
+    content =
+      if image_data do
+        Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
 
-      content ++ [
-        %{
-          type: "image",
-          source: %{
-            type: "base64",
-            media_type: image_data.mimetype,
-            data: image_data.data
-          }
-        }
-      ]
-    else
-      content
-    end
+        content ++
+          [
+            %{
+              type: "image",
+              source: %{
+                type: "base64",
+                media_type: image_data.mimetype,
+                data: image_data.data
+              }
+            }
+          ]
+      else
+        content
+      end
 
     # Add PDF if present
-    content = if pdf_data do
-      Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
+    content =
+      if pdf_data do
+        Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
 
-      content ++ [
-        %{
-          type: "document",
-          source: %{
-            type: "base64",
-            media_type: "application/pdf",
-            data: pdf_data.data
-          }
-        }
-      ]
-    else
-      content
-    end
+        content ++
+          [
+            %{
+              type: "document",
+              source: %{
+                type: "base64",
+                media_type: "application/pdf",
+                data: pdf_data.data
+              }
+            }
+          ]
+      else
+        content
+      end
 
     content
   end
