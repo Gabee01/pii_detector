@@ -1,0 +1,376 @@
+# Notion Integration Implementation Plan
+
+## Overview
+This task involves extending our PII detection system to work with Notion content. We'll implement webhook handling for Notion events, process content for PII, map Notion users to Slack users, and handle the notification flow.
+
+## Implementation Steps
+
+### 1. Set Up Notion API Client (2 hours)
+- [ ] Create `PIIDetector.Platform.Notion` context module with behaviour
+- [ ] Create `PIIDetector.Platform.Notion.API` module with API behaviour
+- [ ] Create `PIIDetector.Platform.Notion.API.Behaviour` module
+- [ ] Implement authentication with Notion API using bearer tokens
+- [ ] Add basic API wrapper functions in the API module:
+  - `get_page(page_id)` - Retrieve page metadata
+  - `get_page_content(page_id)` - Retrieve page content (blocks)
+  - `get_database_entries(database_id)` - Retrieve database entries
+  - `archive_page(page_id)` - Archive a page containing PII
+  - `archive_database_entry(page_id)` - Archive a database entry containing PII
+- [ ] Add configuration for Notion API token in config.exs
+- [ ] Write tests for the Notion API module
+
+### 2. Implement Webhook Handler (2 hours)
+- [ ] Update `PIIDetectorWeb.API.WebhookController` to implement the `notion/2` function
+- [ ] Implement webhook verification with the verification token (security)
+- [ ] Create webhook event parser to extract relevant information:
+  - Event type (page.updated, etc.)
+  - Object ID
+  - User information
+- [ ] Add webhook verification and validation in the controller
+- [ ] Implement webhook signature validation function
+- [ ] Write tests for Notion webhook handling in the controller test file
+
+### 3. Create Notion Event Worker (1.5 hours)
+- [ ] Create `PIIDetector.Workers.Event.NotionEventWorker` module following the pattern of SlackMessageWorker
+- [ ] Implement `perform/1` function to process Notion events
+- [ ] Create handlers for different event types:
+  - `page.updated`
+  - `page.created`
+  - `database.edited`
+- [ ] Connect webhook controller to Oban worker for asynchronous processing
+- [ ] Write tests for the Notion event worker
+
+### 4. Content Processing for PII Detection (3 hours)
+- [ ] Create functions in `PIIDetector.Platform.Notion` to extract content:
+  - `extract_content_from_page(page_data)` - Extract all text from a page
+  - `extract_content_from_blocks(blocks)` - Process different block types
+  - `extract_content_from_database(database_data)` - Extract from database entries
+- [ ] Implement text extraction from different Notion block types:
+  - Parse rich text blocks
+  - Extract text from different block types (paragraph, heading, etc.)
+- [ ] Reuse existing `PIIDetector.Detector` for PII detection on the extracted content
+- [ ] Adapt for multimodal detection when images or PDFs are present
+- [ ] Write tests for Notion content processing
+
+### 5. User Mapping Service (1.5 hours)
+- [ ] Create `PIIDetector.Platform.Notion.UserMapper` module to map Notion users to Slack users
+- [ ] Implement user mapping strategy:
+  - Option 1: Use email address matching (if available)
+  - Option 2: Use name matching with fuzzy search
+  - Option 3: Store explicit mappings in database
+- [ ] Create database schema for user mappings if needed
+- [ ] Create `user_mapping_server.ex` GenServer if stateful mapping is needed
+- [ ] Write tests for Notion user mapping
+
+### 6. Implement PII Response Actions (2 hours)
+- [ ] Extend `PIIDetector.Platform.Notion` with PII response functions:
+  - `archive_content(content_id)` - Archive content with PII
+  - `notify_content_creator(user_id, content, detected_pii)` - Send notification
+- [ ] Create `PIIDetector.Platform.Notion.MessageFormatter` module
+- [ ] Implement function to format Slack notification with:
+  - Link to the original Notion content
+  - Description of the detected PII
+  - Guidance on how to proceed
+- [ ] Integrate with existing `PIIDetector.Platform.Slack` for notifications
+- [ ] Add tests for PII response actions
+
+### 7. Handle Attachments and Rich Content (2 hours)
+- [ ] Create `PIIDetector.Platform.Notion.FileDownloader` module (reuse patterns from Slack file downloader)
+- [ ] Implement functions to download and process Notion file attachments:
+  - `download_file(file_data)` - Download a file from Notion
+  - `process_image(file_data)` - Process image attachments
+  - `process_pdf(file_data)` - Process PDF attachments
+- [ ] Reuse existing `PIIDetector.FileDownloader` patterns
+- [ ] Integrate with multimodal PII detection for visual content
+- [ ] Add tests for Notion attachment processing
+
+### 8. Integration Testing (2 hours)
+- [ ] Create end-to-end test scenario for Notion integration
+- [ ] Test webhook reception and validation
+- [ ] Test content extraction and PII detection
+- [ ] Test user mapping and notification
+- [ ] Test attachment processing
+- [ ] Document test cases and expected results
+
+### 9. Documentation (1.5 hours)
+- [ ] Create setup guide for Notion integration:
+  - API credentials setup
+  - Webhook configuration
+  - Required permissions
+- [ ] Document configuration options
+- [ ] Document user mapping setup
+- [ ] Add troubleshooting guide
+- [ ] Create user guide for end users
+
+## Example Implementations
+
+### Notion API Module Structure
+```elixir
+defmodule PIIDetector.Platform.Notion.API.Behaviour do
+  @moduledoc """
+  Behaviour module defining the Notion API interface.
+  """
+  
+  @callback get_page(page_id :: String.t(), token :: String.t() | nil) ::
+              {:ok, map()} | {:error, any()}
+              
+  @callback get_blocks(page_id :: String.t(), token :: String.t() | nil) ::
+              {:ok, list(map())} | {:error, any()}
+              
+  @callback archive_page(page_id :: String.t(), token :: String.t() | nil) ::
+              {:ok, map()} | {:error, any()}
+              
+  # Additional API functions...
+end
+
+defmodule PIIDetector.Platform.Notion.API do
+  @moduledoc """
+  Implementation of Notion API client.
+  """
+  @behaviour PIIDetector.Platform.Notion.API.Behaviour
+  
+  require Logger
+  
+  @impl true
+  def get_page(page_id, token \\ nil) do
+    token = token || config()[:api_token]
+    url = "#{config()[:base_url]}/pages/#{page_id}"
+    
+    headers = [
+      {"Authorization", "Bearer #{token}"},
+      {"Notion-Version", config()[:notion_version]},
+      {"Content-Type", "application/json"}
+    ]
+    
+    case Req.get(url, headers: headers) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+        
+      {:ok, %{status: status, body: body}} ->
+        Logger.error("Error fetching Notion page: status=#{status}, body=#{inspect(body)}")
+        {:error, "API error: #{status}"}
+        
+      {:error, reason} ->
+        Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+  
+  # Implement other API functions...
+  
+  defp config do
+    Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
+  end
+end
+```
+
+### Notion Event Worker Implementation
+```elixir
+defmodule PIIDetector.Workers.Event.NotionEventWorker do
+  @moduledoc """
+  Oban worker for processing Notion events.
+  This worker handles the asynchronous processing of Notion events for PII detection.
+  """
+  use Oban.Worker, queue: :events, max_attempts: 3
+  
+  require Logger
+  
+  # Use the actual modules for normal code, but allow for injection in tests
+  @detector PIIDetector.Detector
+  @notion_api PIIDetector.Platform.Notion.API
+  @slack PIIDetector.Platform.Slack
+  
+  # Get the actual detector module (allows for test mocking)
+  defp detector do
+    Application.get_env(:pii_detector, :pii_detector_module, @detector)
+  end
+  
+  # Get the Notion API module (allows for test mocking)
+  defp notion_api do
+    Application.get_env(:pii_detector, :notion_api_module, @notion_api)
+  end
+  
+  # Get the Slack module (allows for test mocking)
+  defp slack do
+    Application.get_env(:pii_detector, :slack_module, @slack)
+  end
+  
+  @impl Oban.Worker
+  def perform(%Oban.Job{args: args}) do
+    # Extract event data
+    event_type = args["type"]
+    page_id = get_page_id_from_event(args)
+    user_id = args["user"]["id"]
+    
+    # Process based on event type
+    case event_type do
+      "page.created" -> process_page_creation(page_id, user_id)
+      "page.updated" -> process_page_update(page_id, user_id)
+      "database.edited" -> process_database_edit(page_id, user_id)
+      _ -> 
+        Logger.info("Ignoring unhandled Notion event type: #{event_type}")
+        :ok
+    end
+  end
+  
+  # Helper functions for processing different event types...
+  
+  defp process_page_creation(page_id, user_id) do
+    # Get page content
+    with {:ok, page} <- notion_api().get_page(page_id),
+         {:ok, blocks} <- notion_api().get_blocks(page_id),
+         content <- extract_content(page, blocks) do
+      # Check for PII
+      case detector().detect_pii(content, %{}) do
+        {:pii_detected, true, categories} ->
+          handle_pii_detection(page_id, user_id, content, categories)
+          
+        {:pii_detected, false, _} ->
+          Logger.debug("No PII detected in Notion page #{page_id}")
+          :ok
+      end
+    else
+      {:error, reason} ->
+        Logger.error("Error processing Notion page: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+  
+  # Additional helper functions...
+end
+```
+
+## Technical Details
+
+### Notion API Client Configuration
+```elixir
+# Config
+config :pii_detector, PIIDetector.Platform.Notion,
+  api_token: System.get_env("NOTION_API_TOKEN"),
+  notion_version: "2022-06-28",
+  base_url: "https://api.notion.com/v1",
+  webhook_signing_secret: System.get_env("NOTION_WEBHOOK_SECRET")
+```
+
+### Webhook Controller Implementation
+```elixir
+# Router already has the route defined:
+# post "/webhooks/notion", WebhookController, :notion
+
+# Controller
+defmodule PIIDetectorWeb.API.WebhookController do
+  use PIIDetectorWeb, :controller
+  
+  def notion(conn, params) do
+    # Handle verification challenge if present
+    if Map.has_key?(params, "verification_token") do
+      handle_notion_verification(conn, params)
+    else
+      # Verify webhook signature
+      case verify_notion_webhook_signature(conn) do
+        :ok ->
+          # Parse event data and enqueue for processing
+          Oban.insert(PIIDetector.Workers.Event.NotionEventWorker.new(params))
+          
+          # Respond to Notion with success
+          conn
+          |> put_status(200)
+          |> json(%{status: "ok"})
+          
+        {:error, reason} ->
+          # Log invalid signature attempt
+          Logger.warn("Invalid Notion webhook signature: #{reason}")
+          
+          # Return 401 Unauthorized
+          conn
+          |> put_status(401)
+          |> json(%{status: "error", message: "Invalid signature"})
+      end
+    end
+  end
+  
+  defp handle_notion_verification(conn, %{"verification_token" => token}) do
+    # Respond with 200 OK and store token for later use
+    # Later the user will need to verify in the Notion UI
+    conn
+    |> put_status(200)
+    |> json(%{status: "ok"})
+  end
+  
+  defp verify_notion_webhook_signature(conn) do
+    # Implement webhook signature verification
+    # Details will depend on Notion's implementation
+    :ok
+  end
+end
+```
+
+### Event Processing Flow
+1. Receive webhook from Notion in `WebhookController.notion/2`
+2. Validate webhook authenticity with signature verification
+3. Enqueue event for processing with Oban worker
+4. In `NotionEventWorker.perform/1`:
+   - Extract content based on event type using Notion API
+   - Process content through `PIIDetector.Detector.detect_pii/2`
+   - If PII detected:
+     - Archive content in Notion using `PIIDetector.Platform.Notion.API.archive_page/2`
+     - Map Notion user to Slack user with `PIIDetector.Platform.Notion.UserMapper.find_slack_user/1`
+     - Send notification to user via `PIIDetector.Platform.Slack.notify_user/3`
+     - Log the detection event
+
+### Content Processing Strategy
+1. For pages:
+   - Retrieve page metadata
+   - Retrieve block children recursively
+   - Extract text from all blocks
+   - Process text through PII detection
+   
+2. For databases:
+   - Retrieve database entries
+   - Process each entry's properties
+   - Extract text from property values
+   - Process text through PII detection
+
+### Testing Strategy
+- Unit tests for each module
+- Mock Notion API responses
+- Test webhook handling with sample payloads
+- Integration tests for the complete flow
+
+## Implementation Notes
+
+1. **Incremental Development Approach:**
+   - Start with webhook reception and validation
+   - Implement basic text content processing first
+   - Add user mapping functionality
+   - Finally, add support for attachments and rich content
+
+2. **Error Handling:**
+   - Implement robust error handling for API rate limits
+   - Add retry logic for failed API calls
+   - Log all errors for debugging
+
+3. **Performance Considerations:**
+   - Process Notion events asynchronously
+   - Implement pagination for large pages/databases
+   - Consider caching for frequently accessed data
+
+4. **Security:**
+   - Verify all webhook payloads
+   - Store API tokens securely
+   - Implement proper access controls
+
+## Technical Challenges to Consider
+
+1. **Rate Limiting:** Notion API has rate limits that need to be respected
+2. **Pagination:** Handle pagination for large pages or databases
+3. **Content Types:** Notion has many different block types to handle
+4. **User Mapping:** Finding the correct Slack user for notifications
+5. **Webhook Reliability:** Implement retry and error handling for webhook processing
+
+## Dependencies
+
+- Existing PII detection service
+- Existing Slack notification system
+- Notion API client (consider using an existing library or build custom)
+- Database for user mappings (if needed)
