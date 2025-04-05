@@ -39,9 +39,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         name: "test-image.png"
       }
 
-      # Set up the mock to return an expected value
+      # Set up the mock to use process_generic_file instead
       FileServiceMock
-      |> expect(:process_image, fn file, _opts ->
+      |> expect(:process_generic_file, fn file, _opts ->
         assert file["url"] == "https://slack-files.example.com/test-file.png"
         assert file["mimetype"] == "image/png"
         assert file["name"] == "test-image.png"
@@ -70,9 +70,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         name: "test-doc.pdf"
       }
 
-      # Set up the mock
+      # Set up the mock to use process_generic_file instead
       FileServiceMock
-      |> expect(:process_pdf, fn file, _opts ->
+      |> expect(:process_generic_file, fn file, _opts ->
         assert file["url"] == "https://slack-files.example.com/test-file.pdf"
         assert file["mimetype"] == "application/pdf"
         assert file["name"] == "test-doc.pdf"
@@ -84,15 +84,31 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
       assert result == expected_result
     end
 
-    test "handles unsupported file type" do
+    test "successfully processes any file type" do
       slack_file = %{
         "url_private" => "https://slack-files.example.com/test-file.txt",
         "mimetype" => "text/plain",
         "name" => "test.txt"
       }
 
-      assert {:error, message} = FileAdapter.process_file(slack_file)
-      assert message =~ "Unsupported file type: text/plain"
+      expected_result = %{
+        data: "base64_encoded_text_data",
+        mimetype: "text/plain",
+        name: "test.txt"
+      }
+
+      # Set up the mock to use process_generic_file
+      FileServiceMock
+      |> expect(:process_generic_file, fn file, _opts ->
+        assert file["url"] == "https://slack-files.example.com/test-file.txt"
+        assert file["mimetype"] == "text/plain"
+        assert file["name"] == "test.txt"
+
+        {:ok, expected_result}
+      end)
+
+      assert {:ok, result} = FileAdapter.process_file(slack_file)
+      assert result == expected_result
     end
 
     test "handles invalid file object" do
@@ -107,9 +123,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         "name" => "test-image.png"
       }
 
-      # Set up the mock to verify custom token
+      # Set up the mock to verify custom token with process_generic_file
       FileServiceMock
-      |> expect(:process_image, fn file, _opts ->
+      |> expect(:process_generic_file, fn file, _opts ->
         [{"Authorization", auth_value}] = file["headers"]
         assert auth_value == "Bearer custom-test-token"
 

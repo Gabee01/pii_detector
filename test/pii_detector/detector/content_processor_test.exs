@@ -114,13 +114,13 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         }
       ]
 
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal(files)
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal(files)
 
-      assert image_data != nil
-      assert image_data.name == "test_image.jpg"
-      assert image_data.mimetype == "image/jpeg"
-      assert image_data.data == "base64_data"
-      assert pdf_data == nil
+      assert file_data != nil
+      assert file_data.name == "test_image.jpg"
+      assert file_data.mimetype == "image/jpeg"
+      assert file_data.data == "base64_data"
+      assert nil_data == nil
     end
 
     test "processes PDF files correctly" do
@@ -142,13 +142,13 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         }
       ]
 
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal(files)
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal(files)
 
-      assert image_data == nil
-      assert pdf_data != nil
-      assert pdf_data.name == "test_doc.pdf"
-      assert pdf_data.mimetype == "application/pdf"
-      assert pdf_data.data == "base64_pdf_data"
+      assert file_data != nil
+      assert file_data.name == "test_doc.pdf"
+      assert file_data.mimetype == "application/pdf"
+      assert file_data.data == "base64_pdf_data"
+      assert nil_data == nil
     end
 
     test "processes both image and PDF files" do
@@ -182,12 +182,12 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         }
       ]
 
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal(files)
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal(files)
 
-      assert image_data != nil
-      assert image_data.data == "base64_image_data"
-      assert pdf_data != nil
-      assert pdf_data.data == "base64_pdf_data"
+      assert file_data != nil
+      # It should process the first file in the list, which is the image
+      assert file_data.data == "base64_image_data"
+      assert nil_data == nil
     end
 
     test "handles processing errors gracefully" do
@@ -206,13 +206,22 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         }
       ]
 
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal(files)
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal(files)
 
-      assert image_data == nil
-      assert pdf_data == nil
+      assert file_data == nil
+      assert nil_data == nil
     end
 
     test "ignores unsupported file types" do
+      # Now we expect all file types to be processed
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
+        assert file["name"] == "data.txt"
+        assert file["mimetype"] == "text/plain"
+
+        {:ok, %{data: "base64_text_data", mimetype: "text/plain", name: "data.txt"}}
+      end)
+
       files = [
         %{
           "name" => "data.txt",
@@ -222,24 +231,26 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
         }
       ]
 
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal(files)
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal(files)
 
-      assert image_data == nil
-      assert pdf_data == nil
+      # Now we expect file_data to be populated since we process any file type
+      assert file_data != nil
+      assert file_data.data == "base64_text_data"
+      assert nil_data == nil
     end
 
     test "handles empty file list" do
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal([])
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal([])
 
-      assert image_data == nil
-      assert pdf_data == nil
+      assert file_data == nil
+      assert nil_data == nil
     end
 
     test "handles nil file list" do
-      {image_data, pdf_data} = ContentProcessor.process_files_for_multimodal(nil)
+      {file_data, nil_data} = ContentProcessor.process_files_for_multimodal(nil)
 
-      assert image_data == nil
-      assert pdf_data == nil
+      assert file_data == nil
+      assert nil_data == nil
     end
   end
 end

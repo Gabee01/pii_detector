@@ -34,38 +34,49 @@ defmodule PIIDetector.FileService.Processor do
 
   @impl true
   def process_image(file, opts \\ []) do
-    case download_file(file, opts) do
-      {:ok, image_data} ->
-        base64_data = Base.encode64(image_data)
-
-        {:ok,
-         %{
-           data: base64_data,
-           mimetype: file["mimetype"],
-           name: file["name"] || "unnamed"
-         }}
-
-      {:error, reason} = error ->
-        Logger.error("Failed to process image: #{inspect(reason)}")
-        error
-    end
+    process_generic_file(file, opts)
   end
 
   @impl true
   def process_pdf(file, opts \\ []) do
+    process_generic_file(file, opts)
+  end
+
+  @doc """
+  Process any document file format by downloading and encoding to base64.
+  """
+  @impl true
+  def process_document(file, opts \\ []) do
+    process_generic_file(file, opts)
+  end
+
+  @doc """
+  Process any text file format by downloading and encoding to base64.
+  """
+  @impl true
+  def process_text(file, opts \\ []) do
+    process_generic_file(file, opts)
+  end
+
+  @doc """
+  Generic file processor that works with any file type.
+  Downloads the file and encodes it to base64.
+  """
+  @impl true
+  def process_generic_file(file, opts \\ []) do
     case download_file(file, opts) do
-      {:ok, pdf_data} ->
-        base64_data = Base.encode64(pdf_data)
+      {:ok, file_data} ->
+        base64_data = Base.encode64(file_data)
 
         {:ok,
          %{
            data: base64_data,
-           mimetype: "application/pdf",
+           mimetype: file["mimetype"] || "application/octet-stream",
            name: file["name"] || "unnamed"
          }}
 
       {:error, reason} = error ->
-        Logger.error("Failed to process PDF: #{inspect(reason)}")
+        Logger.error("Failed to process file: #{inspect(reason)}")
         error
     end
   end
@@ -73,20 +84,13 @@ defmodule PIIDetector.FileService.Processor do
   @impl true
   def process_file(file, opts \\ [])
 
-  def process_file(%{"mimetype" => mimetype} = file, opts) do
-    cond do
-      String.starts_with?(mimetype, "image/") ->
-        process_image(file, opts)
-
-      mimetype == "application/pdf" ->
-        process_pdf(file, opts)
-
-      true ->
-        {:error, "Unsupported file type: #{mimetype}"}
-    end
+  def process_file(%{"url" => _url, "headers" => _headers} = file, opts) do
+    # Process any file regardless of MIME type
+    process_generic_file(file, opts)
   end
 
   def process_file(file, _opts) do
+    Logger.error("Invalid file object: #{inspect(file)}")
     {:error, "Invalid file object: #{inspect(file)}"}
   end
 

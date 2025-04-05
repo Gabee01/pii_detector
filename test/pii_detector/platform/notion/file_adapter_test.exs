@@ -2,8 +2,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
   use ExUnit.Case, async: true
   import Mox
 
-  alias PIIDetector.FileServiceMock
   alias PIIDetector.Platform.Notion.FileAdapter
+  alias PIIDetector.FileServiceMock
 
   # We need to make the module linked to the test process
   setup :set_mox_from_context
@@ -41,15 +41,21 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
         name: "test-file.png"
       }
 
-      # Set up the mock
+      # Set up the mock to use process_generic_file instead
       FileServiceMock
-      |> expect(:process_image, fn file, _opts ->
-        assert file["url"] ==
-                 "https://s3.us-west-2.amazonaws.com/secure.notion-static.com/test-file.png"
-
+      |> expect(:process_generic_file, fn file, _opts ->
+        assert file["url"] == "https://s3.us-west-2.amazonaws.com/secure.notion-static.com/test-file.png"
         assert file["mimetype"] == "image/png"
         assert file["name"] == "test-file.png"
+        # Headers should now be present
         assert is_list(file["headers"])
+
+        # The URL doesn't have X-Amz- parameter so it's not detected as pre-signed, auth header present
+        assert Enum.any?(file["headers"], fn {key, _} -> key == "Authorization" end)
+
+        # User-Agent should be present
+        assert Enum.any?(file["headers"], fn {key, _} -> key == "User-Agent" end)
+
         {:ok, expected_result}
       end)
 
@@ -57,30 +63,31 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
       assert result == expected_result
     end
 
-    test "processes Notion-hosted file object (pdf)" do
+    test "processes externally hosted file object (PDF)" do
       notion_file = %{
-        "type" => "file",
-        "file" => %{
-          "url" => "https://s3.us-west-2.amazonaws.com/secure.notion-static.com/test-file.pdf",
-          "expiry_time" => "2023-01-01T00:00:00.000Z"
+        "type" => "external",
+        "external" => %{
+          "url" => "https://example.com/document.pdf"
         }
       }
 
       expected_result = %{
         data: "base64_encoded_data",
         mimetype: "application/pdf",
-        name: "test-file.pdf"
+        name: "document.pdf"
       }
 
-      # Set up the mock
+      # Set up the mock to use process_generic_file instead
       FileServiceMock
-      |> expect(:process_pdf, fn file, _opts ->
-        assert file["url"] ==
-                 "https://s3.us-west-2.amazonaws.com/secure.notion-static.com/test-file.pdf"
-
+      |> expect(:process_generic_file, fn file, _opts ->
+        assert file["url"] == "https://example.com/document.pdf"
         assert file["mimetype"] == "application/pdf"
-        assert file["name"] == "test-file.pdf"
+        assert file["name"] == "document.pdf"
+        # Headers should be present for external files too
         assert is_list(file["headers"])
+        # For non-S3 URLs, authorization should be included
+        assert Enum.any?(file["headers"], fn {key, _} -> key == "Authorization" end)
+
         {:ok, expected_result}
       end)
 
@@ -88,7 +95,7 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
       assert result == expected_result
     end
 
-    test "processes external file object (image)" do
+    test "processes external image file" do
       notion_file = %{
         "type" => "external",
         "external" => %{
@@ -102,14 +109,16 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
         name: "image.jpg"
       }
 
-      # Set up the mock
+      # Set up the mock to use process_generic_file instead
       FileServiceMock
-      |> expect(:process_image, fn file, _opts ->
+      |> expect(:process_generic_file, fn file, _opts ->
         assert file["url"] == "https://example.com/image.jpg"
         assert file["mimetype"] == "image/jpeg"
         assert file["name"] == "image.jpg"
-        # No headers for external files
-        assert file["headers"] == []
+        # Headers should now be present for external files
+        assert is_list(file["headers"])
+        # For non-S3 URLs, authorization should be included
+        assert Enum.any?(file["headers"], fn {key, _} -> key == "Authorization" end)
         {:ok, expected_result}
       end)
 
@@ -126,8 +135,15 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
         }
       }
 
-      assert {:error, message} = FileAdapter.process_file(notion_file)
-      assert message =~ "Unsupported file type"
+      # Now we should be able to process any file format
+      FileServiceMock
+      |> expect(:process_generic_file, fn file, _opts ->
+        assert file["mimetype"] == "text/plain"
+        assert file["name"] == "test-file.txt"
+        {:ok, %{data: "base64_data", mimetype: "text/plain", name: "test-file.txt"}}
+      end)
+
+      assert {:ok, _result} = FileAdapter.process_file(notion_file)
     end
 
     test "handles invalid file object structure" do
@@ -154,9 +170,9 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
 
       error_message = "Download failed: connection error"
 
-      # Set up the mock to simulate download error
+      # Set up the mock to simulate download error with process_generic_file
       FileServiceMock
-      |> expect(:process_image, fn _file, _opts ->
+      |> expect(:process_generic_file, fn _file, _opts ->
         {:error, error_message}
       end)
 
@@ -172,8 +188,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
         }
       }
 
-      # Mock the FileService to verify it gets the headers
-      expect(FileServiceMock, :process_image, fn file_data, _opts ->
+      # Mock the FileService to verify it gets the headers using process_generic_file
+      expect(FileServiceMock, :process_generic_file, fn file_data, _opts ->
         # Verify the headers were included
         assert is_list(file_data["headers"])
         assert Enum.any?(file_data["headers"], fn {key, _} -> key == "Authorization" end)
@@ -193,8 +209,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
         }
       }
 
-      # Mock the FileService to verify it gets the headers with the token
-      expect(FileServiceMock, :process_image, fn file_data, _opts ->
+      # Mock the FileService to verify it gets the headers with the token using process_generic_file
+      expect(FileServiceMock, :process_generic_file, fn file_data, _opts ->
         # Find the Authorization header
         auth_header = Enum.find(file_data["headers"], fn {key, _} -> key == "Authorization" end)
         assert auth_header == {"Authorization", "Bearer custom-test-token"}
@@ -205,6 +221,52 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
       # Pass a custom token
       custom_token = "custom-test-token"
       assert {:ok, _result} = FileAdapter.process_file(file_object, token: custom_token)
+    end
+
+    test "process_file/2 doesn't include authorization headers for AWS S3 pre-signed URLs" do
+      # Create a file object with an AWS S3 pre-signed URL
+      file_object = %{
+        "type" => "file",
+        "file" => %{
+          "url" => "https://prod-files-secure.s3.us-west-2.amazonaws.com/12345/file.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA..."
+        }
+      }
+
+      # Mock the FileService to verify no authorization headers are included using process_generic_file
+      expect(FileServiceMock, :process_generic_file, fn file_data, _opts ->
+        # Check that there is no Authorization header
+        auth_header = Enum.find(file_data["headers"], fn {key, _} -> key == "Authorization" end)
+        assert auth_header == nil
+
+        # But should still have User-Agent and Accept headers
+        assert Enum.any?(file_data["headers"], fn {key, _} -> key == "User-Agent" end)
+        assert Enum.any?(file_data["headers"], fn {key, _} -> key == "Accept" end)
+
+        {:ok, %{data: "base64data", mimetype: "image/png"}}
+      end)
+
+      assert {:ok, _result} = FileAdapter.process_file(file_object)
+    end
+
+    test "process_file/2 includes authorization headers for non-S3 URLs" do
+      # Create a file object with a regular URL
+      file_object = %{
+        "type" => "file",
+        "file" => %{
+          "url" => "https://notion.so/api/v1/files/123456/image.png"
+        }
+      }
+
+      # Mock the FileService to verify authorization headers are included using process_generic_file
+      expect(FileServiceMock, :process_generic_file, fn file_data, _opts ->
+        # Check that there is an Authorization header
+        auth_header = Enum.find(file_data["headers"], fn {key, _} -> key == "Authorization" end)
+        assert auth_header != nil
+
+        {:ok, %{data: "base64data", mimetype: "image/png"}}
+      end)
+
+      assert {:ok, _result} = FileAdapter.process_file(file_object)
     end
   end
 end

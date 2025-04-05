@@ -205,11 +205,11 @@ defmodule PIIDetector.DetectorTest do
 
       # Set up expectation for AI service
       AIServiceMock
-      |> expect(:analyze_pii_multimodal, fn _text, _image_data, pdf_data ->
-        assert pdf_data != nil
-        assert pdf_data.name =~ "pii_financial"
-        assert pdf_data.mimetype == "application/pdf"
-        assert pdf_data.data == Base.encode64(valid_pdf_data)
+      |> expect(:analyze_pii_multimodal, fn _text, file_data, nil ->
+        assert file_data != nil
+        assert file_data.name =~ "pii_financial"
+        assert file_data.mimetype == "application/pdf"
+        assert file_data.data == Base.encode64(valid_pdf_data)
 
         {:ok,
          %{
@@ -254,9 +254,9 @@ defmodule PIIDetector.DetectorTest do
 
       # Set up expectation for AI service
       AIServiceMock
-      |> expect(:analyze_pii_multimodal, fn _text, image_data, _pdf_data ->
-        assert image_data != nil
-        assert image_data.name =~ "normal_image"
+      |> expect(:analyze_pii_multimodal, fn _text, file_data, nil ->
+        assert file_data != nil
+        assert file_data.name =~ "normal_image"
 
         {:ok, %{has_pii: false, categories: [], explanation: "No PII detected in text or files."}}
       end)
@@ -334,11 +334,11 @@ defmodule PIIDetector.DetectorTest do
 
       # Set up expectation for AI service
       AIServiceMock
-      |> expect(:analyze_pii_multimodal, fn _text, image_data, _pdf_data ->
-        assert image_data != nil
-        assert image_data.name =~ "pii_test_image"
-        assert image_data.mimetype =~ "image/jpeg"
-        assert image_data.data == Base.encode64(valid_jpeg_data)
+      |> expect(:analyze_pii_multimodal, fn _text, file_data, nil ->
+        assert file_data != nil
+        assert file_data.name =~ "pii_test_image"
+        assert file_data.mimetype =~ "image/jpeg"
+        assert file_data.data == Base.encode64(valid_jpeg_data)
 
         {:ok,
          %{
@@ -364,6 +364,47 @@ defmodule PIIDetector.DetectorTest do
 
       assert {:pii_detected, true, categories} = Detector.detect_pii(content)
       assert "name" in categories
+    end
+  end
+
+  describe "detect_pii/1" do
+    test "detects PII in PDF files", %{} do
+      # Setup mocks
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
+        assert file[:url] == "https://example.com/document.pdf"
+        assert file[:name] == "document.pdf"
+
+        {:ok, %{
+          name: "document.pdf",
+          mimetype: "application/pdf",
+          data: Base.encode64("PDF file content")
+        }}
+      end)
+
+      AIServiceMock
+      |> expect(:analyze_pii_multimodal, fn _text_content, file_data, nil ->
+        assert file_data != nil
+        assert file_data.name == "document.pdf"
+        assert file_data.mimetype == "application/pdf"
+
+        {:ok, %{has_pii: true, categories: ["EMAIL", "PHONE_NUMBER"]}}
+      end)
+
+      # Test content with PDF file
+      content = %{
+        text: "Check this document",
+        files: [
+          %{
+            url: "https://example.com/document.pdf",
+            type: "file",
+            name: "document.pdf"
+          }
+        ]
+      }
+
+      # Execute and assert
+      assert {:pii_detected, true, ["EMAIL", "PHONE_NUMBER"]} = Detector.detect_pii(content)
     end
   end
 end

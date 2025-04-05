@@ -54,12 +54,12 @@ defmodule PIIDetector.Detector do
   end
 
   # Analyze content and determine if it contains PII
-  defp analyze_content(text_content, image_data, pdf_data)
-       when image_data != nil or pdf_data != nil do
-    # Has image or PDF files, use multimodal analysis
-    Logger.info("Analyzing content with multimodal AI (text + image/PDF)")
+  defp analyze_content(text_content, file_data, nil)
+       when file_data != nil do
+    # Has a file, use multimodal analysis
+    Logger.info("Analyzing content with multimodal AI (text + file)")
 
-    case ai_service().analyze_pii_multimodal(text_content, image_data, pdf_data) do
+    case ai_service().analyze_pii_multimodal(text_content, file_data, nil) do
       {:ok, %{has_pii: has_pii, categories: categories}} ->
         {:pii_detected, has_pii, categories}
 
@@ -69,7 +69,7 @@ defmodule PIIDetector.Detector do
     end
   end
 
-  defp analyze_content(text_content, _image_data, _pdf_data) do
+  defp analyze_content(text_content, _file_data, _nil) do
     # Text-only analysis
     Logger.info("Analyzing content with text-only AI")
 

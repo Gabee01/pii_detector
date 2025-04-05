@@ -24,14 +24,29 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
   @spec process_file(map(), keyword()) :: {:ok, map()} | {:error, String.t()}
   def process_file(file_object, opts \\ [])
 
-  def process_file(%{"type" => "file", "file" => file_data} = _file_object, opts) do
+  # Safely handle nil or empty file objects
+  def process_file(nil, _opts) do
+    Logger.warning("Received nil file object to process")
+    {:error, "Nil file object"}
+  end
+
+  def process_file(file_object, _opts) when map_size(file_object) == 0 do
+    Logger.warning("Received empty file object to process")
+    {:error, "Empty file object"}
+  end
+
+  def process_file(%{"type" => "file", "file" => file_data} = _file_object, opts) when is_map(file_data) do
+    Logger.debug("Processing Notion file of type 'file': #{inspect(file_data, pretty: true, limit: 100)}")
+
     with {:ok, url} <- extract_url(file_data),
-         {:ok, file_name} <- extract_file_name(url),
-         {:ok, mime_type} <- detect_mime_type(file_name) do
+         {:ok, file_name} <- extract_file_name(url) do
       file_service = get_file_service()
 
       # Add appropriate headers for Notion files
-      headers = build_auth_headers(opts)
+      headers = build_auth_headers(Keyword.put(opts, :url, url))
+
+      # Get mime type if possible, but don't fail if we can't determine it
+      mime_type = get_mime_type(file_name)
 
       adapted_file = %{
         "url" => url,
@@ -40,45 +55,78 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
         "headers" => headers
       }
 
-      process_by_type(file_service, adapted_file, opts)
+      file_service.process_generic_file(adapted_file, opts)
     else
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        Logger.warning("Error processing Notion file: #{reason}")
+        {:error, reason}
     end
   end
 
-  def process_file(%{"type" => "external", "external" => external_data} = _file_object, opts) do
+  def process_file(%{"type" => "external", "external" => external_data} = _file_object, opts) when is_map(external_data) do
+    Logger.debug("Processing Notion external file: #{inspect(external_data, pretty: true, limit: 100)}")
+
     with {:ok, url} <- extract_external_url(external_data),
-         {:ok, file_name} <- extract_file_name(url),
-         {:ok, mime_type} <- detect_mime_type(file_name) do
+         {:ok, file_name} <- extract_file_name(url) do
       file_service = get_file_service()
 
-      # For external files, we typically don't need authorization headers
+      # For external files, check if it's an S3 URL or other URL type
+      headers = build_auth_headers(Keyword.put(opts, :url, url))
+
+      # Get mime type if possible, but don't fail if we can't determine it
+      mime_type = get_mime_type(file_name)
+
       adapted_file = %{
         "url" => url,
         "mimetype" => mime_type,
         "name" => file_name,
-        # No auth for external files
-        "headers" => []
+        "headers" => headers
       }
 
-      process_by_type(file_service, adapted_file, opts)
+      file_service.process_generic_file(adapted_file, opts)
     else
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        Logger.warning("Error processing Notion external file: #{reason}")
+        {:error, reason}
+    end
+  end
+
+  # Handle image type files from Notion
+  def process_file(%{"type" => "image", "image" => image_data} = _file_object, opts) when is_map(image_data) do
+    Logger.debug("Processing Notion image: #{inspect(image_data, pretty: true, limit: 100)}")
+
+    # Image data can be in either "file" or "external" format, handle both
+    cond do
+      is_map_key(image_data, "file") ->
+        process_file(%{"type" => "file", "file" => image_data["file"]}, opts)
+
+      is_map_key(image_data, "external") ->
+        process_file(%{"type" => "external", "external" => image_data["external"]}, opts)
+
+      true ->
+        Logger.warning("Unsupported image format in Notion: #{inspect(image_data)}")
+        {:error, "Unsupported image format"}
     end
   end
 
   def process_file(file_object, _opts) do
-    Logger.error("Unsupported Notion file object format: #{inspect(file_object)}")
+    Logger.warning("Unsupported Notion file object format: #{inspect(file_object, pretty: true, limit: 100)}")
     {:error, "Unsupported file object format"}
   end
 
   # Private functions
 
   defp extract_url(%{"url" => url}) when is_binary(url) and url != "", do: {:ok, url}
-  defp extract_url(_), do: {:error, "Invalid Notion file object structure"}
+  defp extract_url(file_data) do
+    Logger.warning("Invalid Notion file structure - url missing or invalid: #{inspect(file_data)}")
+    {:error, "Invalid Notion file object structure"}
+  end
 
   defp extract_external_url(%{"url" => url}) when is_binary(url) and url != "", do: {:ok, url}
-  defp extract_external_url(_), do: {:error, "Invalid external file object structure"}
+  defp extract_external_url(external_data) do
+    Logger.warning("Invalid external file structure - url missing or invalid: #{inspect(external_data)}")
+    {:error, "Invalid external file object structure"}
+  end
 
   defp extract_file_name(url) do
     case URI.parse(url) do
@@ -90,37 +138,31 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
           else: {:error, "Could not extract file name from URL"}
 
       _ ->
+        Logger.warning("Invalid URL format: #{url}")
         {:error, "Invalid URL format"}
     end
   end
 
-  defp detect_mime_type(file_name) do
+  # Get mime type without failing if we can't determine it
+  defp get_mime_type(file_name) do
     extension = Path.extname(file_name) |> String.downcase()
 
-    mime_type =
-      case extension do
-        ".pdf" -> "application/pdf"
-        ".png" -> "image/png"
-        ".jpg" -> "image/jpeg"
-        ".jpeg" -> "image/jpeg"
-        ".gif" -> "image/gif"
-        ".webp" -> "image/webp"
-        _ -> nil
-      end
-
-    if mime_type, do: {:ok, mime_type}, else: {:error, "Unsupported file type: #{extension}"}
-  end
-
-  defp process_by_type(file_service, file_data, opts) do
-    case file_data["mimetype"] do
-      "application/pdf" ->
-        file_service.process_pdf(file_data, opts)
-
-      mime when mime in ["image/png", "image/jpeg", "image/gif", "image/webp"] ->
-        file_service.process_image(file_data, opts)
-
-      _ ->
-        {:error, "Unsupported file type: #{file_data["mimetype"]}"}
+    case extension do
+      ".pdf" -> "application/pdf"
+      ".png" -> "image/png"
+      ".jpg" -> "image/jpeg"
+      ".jpeg" -> "image/jpeg"
+      ".gif" -> "image/gif"
+      ".webp" -> "image/webp"
+      ".doc" -> "application/msword"
+      ".docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ".xls" -> "application/vnd.ms-excel"
+      ".xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ".ppt" -> "application/vnd.ms-powerpoint"
+      ".pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      ".txt" -> "text/plain"
+      ".csv" -> "text/csv"
+      _ -> "application/octet-stream" # Default MIME type for binary data
     end
   end
 
@@ -137,13 +179,32 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
 
   # Build appropriate headers for Notion API file requests
   defp build_auth_headers(opts) do
-    token = get_token(opts)
-    # For AWS S3 URLs, we typically don't need headers as auth is in the URL
-    # But for Notion's own API endpoints, we might need authorization
-    [
-      {"Authorization", "Bearer #{token}"},
-      {"User-Agent", "PIIDetector/1.0 (Notion File Processor)"},
-      {"Accept", "*/*"}
-    ]
+    url = opts[:url] || ""
+
+    # For AWS S3 pre-signed URLs, don't add authorization headers
+    # as they already include authentication information
+    if is_aws_s3_url?(url) do
+      # Return minimal headers for S3
+      [
+        {"User-Agent", "PIIDetector/1.0 (Notion File Processor)"},
+        {"Accept", "*/*"}
+      ]
+    else
+      # For Notion API endpoints, include authorization
+      token = get_token(opts)
+      [
+        {"Authorization", "Bearer #{token}"},
+        {"User-Agent", "PIIDetector/1.0 (Notion File Processor)"},
+        {"Accept", "*/*"}
+      ]
+    end
+  end
+
+  # Check if URL is an AWS S3 URL
+  defp is_aws_s3_url?(url) do
+    String.contains?(url, "s3.") and
+    (String.contains?(url, "amazonaws.com") or
+     String.contains?(url, "aws.amazon.com")) and
+    String.contains?(url, "X-Amz-")
   end
 end

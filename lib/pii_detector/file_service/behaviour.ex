@@ -21,6 +21,24 @@ defmodule PIIDetector.FileService.Behaviour do
   @callback process_pdf(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
+  Process a document file (like Word, etc.) for AI analysis.
+  Typically converts to base64 and returns metadata.
+  """
+  @callback process_document(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
+
+  @doc """
+  Process a text file for AI analysis.
+  Typically converts to base64 and returns metadata.
+  """
+  @callback process_text(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
+
+  @doc """
+  Process any file regardless of type.
+  Converts to base64 and returns metadata.
+  """
+  @callback process_generic_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
+
+  @doc """
   Process a file based on its MIME type.
   Automatically determines file type and delegates to the appropriate processor.
   """

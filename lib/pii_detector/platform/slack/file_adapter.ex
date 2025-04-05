@@ -45,16 +45,8 @@ defmodule PIIDetector.Platform.Slack.FileAdapter do
   # Private functions
 
   defp process_by_type(file_service, file_data, opts) do
-    case file_data["mimetype"] do
-      "application/pdf" ->
-        file_service.process_pdf(file_data, opts)
-
-      mime when mime in ["image/png", "image/jpeg", "image/gif", "image/webp"] ->
-        file_service.process_image(file_data, opts)
-
-      _ ->
-        {:error, "Unsupported file type: #{file_data["mimetype"]}"}
-    end
+    # Use generic file processor for all file types instead of checking MIME types
+    file_service.process_generic_file(file_data, opts)
   end
 
   defp get_file_service do

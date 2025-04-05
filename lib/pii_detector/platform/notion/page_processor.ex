@@ -119,9 +119,14 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
 
   # Process files for PII detection
   defp process_files(files) do
-    Enum.reduce(files, [], fn file, acc ->
+    Logger.debug("Processing Notion files: #{inspect(files, pretty: true, limit: 1000)}")
+
+    processed_files = Enum.reduce(files, [], fn file, acc ->
+      Logger.debug("Processing Notion file: #{inspect(file, pretty: true)}")
+
       case FileAdapter.process_file(file) do
         {:ok, processed_file} ->
+          Logger.debug("Successfully processed file: #{processed_file.name}, mimetype: #{processed_file.mimetype}")
           [processed_file | acc]
 
         {:error, reason} ->
@@ -129,6 +134,9 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
           acc
       end
     end)
+
+    Logger.debug("Processed files result: #{length(processed_files)} files processed")
+    processed_files
   end
 
   # Detect PII in the extracted content and files

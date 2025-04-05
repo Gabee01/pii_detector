@@ -117,8 +117,15 @@ defmodule PIIDetector.AI.ClaudeService do
     # Initialize Anthropic client with API key
     client = anthropic_client().init(get_api_key())
 
-    # Build content array with text and images/PDFs for multimodal request
-    content = build_multimodal_content(text, image_data, pdf_data)
+    # Choose which file data to use (prefer image data if present)
+    file_data = case {image_data, pdf_data} do
+      {nil, nil} -> nil
+      {nil, pdf} -> pdf
+      {img, _} -> img
+    end
+
+    # Build content array with text and file data for multimodal request
+    content = build_multimodal_content(text, file_data)
 
     # Create the messages for Claude
     messages = [
@@ -194,8 +201,8 @@ defmodule PIIDetector.AI.ClaudeService do
   end
 
   @doc false
-  # Builds a content array suitable for Claude's multimodal API combining text, images, and PDFs
-  defp build_multimodal_content(text, image_data, pdf_data) do
+  # Builds a content array suitable for Claude's multimodal API combining text with a file
+  defp build_multimodal_content(text, file_data) do
     # Start with the text prompt
     prompt_text = create_pii_detection_prompt(text)
 
@@ -206,64 +213,64 @@ defmodule PIIDetector.AI.ClaudeService do
       }
     ]
 
-    # Add image if present
-    content = add_image_to_content(content, image_data)
+    # Add file if present
+    content = add_image_to_content(content, file_data)
 
-    # Add PDF if present
-    content = add_pdf_to_content(content, pdf_data)
+    Logger.debug("Built multimodal content with file: #{inspect(file_data != nil)}")
 
     content
   end
 
   @doc false
   # Adds image data to the multimodal content array if present and valid
-  defp add_image_to_content(content, nil), do: content
-
   defp add_image_to_content(content, image_data) do
-    Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
+    Logger.debug("Adding file to multimodal content: #{inspect(image_data)}")
 
-    # Check if the base64 data appears to be HTML content
-    if html_base64?(image_data.data) do
-      Logger.error("Detected HTML content in base64 data - not adding image")
+    # Early return if no data
+    if image_data == nil do
+      Logger.debug("No file data to add to multimodal content")
       content
     else
-      content ++
-        [
-          %{
-            type: "image",
-            source: %{
-              type: "base64",
-              media_type: image_data.mimetype,
-              data: image_data.data
+      # Normalize the data structure - support both atom and string keys
+      name = image_data[:name] || image_data["name"] || "unnamed"
+      mimetype = image_data[:mimetype] || image_data["mimetype"] || "application/octet-stream"
+      data = image_data[:data] || image_data["data"]
+
+      Logger.debug("File name: #{name}, mimetype: #{mimetype}, data length: #{String.length(data)}")
+
+      # Check if the base64 data appears to be HTML content
+      if html_base64?(data) do
+        Logger.error("Detected HTML content in base64 data - not adding file")
+        content
+      else
+        # Determine the appropriate format based on MIME type
+        {type, media_type} = case mimetype do
+          "application/pdf" ->
+            {"document", "application/pdf"}
+          mime when mime in ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"] ->
+            {"image", mime}
+          _ ->
+            # Default to image type for any other file, Claude will try its best
+            {"image", mimetype}
+        end
+
+        Logger.debug("Adding file as type: #{type}, media_type: #{media_type}")
+
+        updated_content = content ++
+          [
+            %{
+              type: type,
+              source: %{
+                type: "base64",
+                media_type: media_type,
+                data: data
+              }
             }
-          }
-        ]
-    end
-  end
+          ]
 
-  @doc false
-  # Adds PDF data to the multimodal content array if present and valid
-  defp add_pdf_to_content(content, nil), do: content
-
-  defp add_pdf_to_content(content, pdf_data) do
-    Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
-
-    # Check if the base64 data appears to be HTML content
-    if html_base64?(pdf_data.data) do
-      Logger.error("Detected HTML content in base64 data - not adding PDF")
-      content
-    else
-      content ++
-        [
-          %{
-            type: "document",
-            source: %{
-              type: "base64",
-              media_type: "application/pdf",
-              data: pdf_data.data
-            }
-          }
-        ]
+        Logger.debug("Successfully added file to multimodal content")
+        updated_content
+      end
     end
   end
 

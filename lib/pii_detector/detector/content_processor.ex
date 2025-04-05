@@ -62,15 +62,19 @@ defmodule PIIDetector.Detector.ContentProcessor do
   - `{image_data, pdf_data}` - A tuple containing processed image and PDF data, or nil if none
   """
   def process_files_for_multimodal(files) when is_list(files) and length(files) > 0 do
-    # Find the first image and PDF file in the list
-    image_file = Enum.find(files, &image_file?/1)
-    pdf_file = Enum.find(files, &pdf_file?/1)
+    Logger.debug("Processing files for multimodal: #{inspect(files, pretty: true, limit: 5000)}")
 
-    # Process the files if found
-    image_data = process_image_file(image_file)
-    pdf_data = process_pdf_file(pdf_file)
+    # Just take the first file, regardless of type
+    first_file = List.first(files)
+    Logger.debug("Taking first file for processing: #{inspect(first_file)}")
 
-    {image_data, pdf_data}
+    # Process directly without type checking
+    processed_data = process_any_file(first_file)
+
+    Logger.debug("After processing: file_data=#{inspect(processed_data != nil)}")
+
+    # Return the processed file as image_data (Claude will handle it appropriately)
+    {processed_data, nil}
   end
 
   def process_files_for_multimodal(_files) do
@@ -84,13 +88,25 @@ defmodule PIIDetector.Detector.ContentProcessor do
   end
 
   defp image_file?(%{"mimetype" => mimetype}) do
-    String.starts_with?(mimetype, "image/")
+    result = String.starts_with?(mimetype, "image/")
+    Logger.debug("Checking if file is an image: mimetype=#{mimetype}, result=#{result}")
+    result
   end
 
-  defp image_file?(_), do: false
+  defp image_file?(file) do
+    Logger.debug("Checking if file is an image: invalid file format: #{inspect(file)}")
+    false
+  end
 
-  defp pdf_file?(%{"mimetype" => "application/pdf"}), do: true
-  defp pdf_file?(_), do: false
+  defp pdf_file?(%{"mimetype" => "application/pdf"}) do
+    Logger.debug("Checking if file is a PDF: found PDF")
+    true
+  end
+
+  defp pdf_file?(file) do
+    Logger.debug("Checking if file is a PDF: not a PDF, file=#{inspect(file)}")
+    false
+  end
 
   defp describe_file(%{"mimetype" => mimetype, "name" => name}) do
     cond do
@@ -120,58 +136,34 @@ defmodule PIIDetector.Detector.ContentProcessor do
 
   defp describe_file(_), do: nil
 
-  defp process_image_file(nil), do: nil
+  # Process any file for multimodal analysis
+  defp process_any_file(nil), do: nil
 
-  defp process_image_file(file) do
-    file_adapter = determine_file_adapter(file)
+  defp process_any_file(%{data: base64_data, mimetype: mimetype, name: name}) do
+    Logger.info("File already processed, using existing data: #{name}")
+    # Return already processed file data
+    %{
+      data: base64_data,
+      mimetype: mimetype,
+      name: name
+    }
+  end
 
-    case file_adapter.process_file(file, []) do
-      {:ok, data} ->
-        data
+  defp process_any_file(file) do
+    Logger.info("Processing file for multimodal analysis: #{inspect(Map.get(file, "name") || Map.get(file, :name))}")
 
+    with {:ok, processed_file} <- file_service().process_file(file, []) do
+      # Return processed file data
+      processed_file
+    else
       {:error, reason} ->
-        Logger.error("Failed to process image for PII detection: #{inspect(reason)}")
+        Logger.error("Failed to process file: #{inspect(reason)}")
         nil
     end
   end
 
-  defp process_pdf_file(nil), do: nil
-
-  defp process_pdf_file(file) do
-    file_adapter = determine_file_adapter(file)
-
-    case file_adapter.process_file(file, []) do
-      {:ok, data} ->
-        data
-
-      {:error, reason} ->
-        Logger.error("Failed to process PDF for PII detection: #{inspect(reason)}")
-        nil
-    end
-  end
-
-  # Determine which file adapter to use based on source platform
-  defp determine_file_adapter(file) do
-    cond do
-      # Check for Slack specific attributes
-      Map.has_key?(file, "url_private") and not Map.has_key?(file, "type") ->
-        Application.get_env(
-          :pii_detector,
-          :slack_file_adapter,
-          PIIDetector.Platform.Slack.FileAdapter
-        )
-
-      # Check for Notion specific attributes (file or external type)
-      Map.has_key?(file, "type") and file["type"] in ["file", "external"] ->
-        Application.get_env(
-          :pii_detector,
-          :notion_file_adapter,
-          PIIDetector.Platform.Notion.FileAdapter
-        )
-
-      # Use the file service processor directly for all other cases
-      true ->
-        Application.get_env(:pii_detector, :file_service, PIIDetector.FileService.Processor)
-    end
+  # Get the configured file service implementation
+  defp file_service do
+    Application.get_env(:pii_detector, :file_service, PIIDetector.FileService.Processor)
   end
 end
