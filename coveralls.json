@@ -6,7 +6,8 @@
     "lib/pii_detector/application.ex",
     "lib/pii_detector_web/router.ex",
     "lib/pii_detector/release.ex",
-    "lib/pii_detector_web/components/core_components.ex"
+    "lib/pii_detector_web/components/core_components.ex",
+    "lib/pii_detector/ai/anthropic/client.ex"
   ],
   "coverage_options": {
     "treat_no_relevant_lines_as_covered": true,

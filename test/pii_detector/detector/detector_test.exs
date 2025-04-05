@@ -132,6 +132,10 @@ defmodule PIIDetector.DetectorTest do
     end
 
     test "detects PII in image files" do
+      # Create valid JPEG data with signature
+      jpeg_signature = <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01>>
+      valid_jpeg_data = jpeg_signature <> "fake_image_data"
+
       # Set up expectations for FileDownloader
       FileDownloaderMock
       |> expect(:process_image, fn file, _opts ->
@@ -140,7 +144,7 @@ defmodule PIIDetector.DetectorTest do
 
         {:ok,
          %{
-           data: Base.encode64("fake_image_data"),
+           data: Base.encode64(valid_jpeg_data),
            mimetype: "image/jpeg",
            name: "pii_test_image.jpg"
          }}
@@ -152,7 +156,7 @@ defmodule PIIDetector.DetectorTest do
         assert image_data != nil
         assert image_data.name =~ "pii_test_image"
         assert image_data.mimetype =~ "image/jpeg"
-        assert image_data.data == Base.encode64("fake_image_data")
+        assert image_data.data == Base.encode64(valid_jpeg_data)
 
         {:ok,
          %{
@@ -181,6 +185,10 @@ defmodule PIIDetector.DetectorTest do
     end
 
     test "detects PII in PDF files" do
+      # Create valid PDF data with signature
+      pdf_signature = "%PDF-1.5\n"
+      valid_pdf_data = pdf_signature <> "fake_pdf_content"
+
       # Set up expectations for FileDownloader
       FileDownloaderMock
       |> expect(:process_pdf, fn file, _opts ->
@@ -189,7 +197,7 @@ defmodule PIIDetector.DetectorTest do
 
         {:ok,
          %{
-           data: Base.encode64("fake_pdf_data"),
+           data: Base.encode64(valid_pdf_data),
            mimetype: "application/pdf",
            name: "pii_financial.pdf"
          }}
@@ -201,7 +209,7 @@ defmodule PIIDetector.DetectorTest do
         assert pdf_data != nil
         assert pdf_data.name =~ "pii_financial"
         assert pdf_data.mimetype == "application/pdf"
-        assert pdf_data.data == Base.encode64("fake_pdf_data")
+        assert pdf_data.data == Base.encode64(valid_pdf_data)
 
         {:ok,
          %{
@@ -306,6 +314,10 @@ defmodule PIIDetector.DetectorTest do
 
   describe "detector with files" do
     test "detects PII in image files" do
+      # Create valid JPEG data with signature
+      jpeg_signature = <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01>>
+      valid_jpeg_data = jpeg_signature <> "fake_image_data"
+
       # Set up expectations for FileDownloader
       FileDownloaderMock
       |> expect(:process_image, fn file, _opts ->
@@ -314,7 +326,7 @@ defmodule PIIDetector.DetectorTest do
 
         {:ok,
          %{
-           data: Base.encode64("fake_image_data"),
+           data: Base.encode64(valid_jpeg_data),
            mimetype: "image/jpeg",
            name: "pii_test_image.jpg"
          }}
@@ -326,7 +338,7 @@ defmodule PIIDetector.DetectorTest do
         assert image_data != nil
         assert image_data.name =~ "pii_test_image"
         assert image_data.mimetype =~ "image/jpeg"
-        assert image_data.data == Base.encode64("fake_image_data")
+        assert image_data.data == Base.encode64(valid_jpeg_data)
 
         {:ok,
          %{

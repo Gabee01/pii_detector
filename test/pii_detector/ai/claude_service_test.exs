@@ -89,10 +89,15 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
     test "analyzes text with image data" do
       # Set up test data
       text = "Check this image"
+
+      # Create valid JPEG data with signature
+      jpeg_signature = <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01>>
+      valid_jpeg_data = jpeg_signature <> "fake_image_data"
+
       image_data = %{
         name: "test_image.jpg",
         mimetype: "image/jpeg",
-        data: Base.encode64("fake_image_data")
+        data: Base.encode64(valid_jpeg_data)
       }
 
       # Set up mock expectations
@@ -117,10 +122,15 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
     test "analyzes text with PDF data" do
       # Set up test data
       text = "Check this PDF"
+
+      # Create valid PDF data with signature
+      pdf_signature = "%PDF-1.5\n"
+      valid_pdf_data = pdf_signature <> "fake_pdf_content"
+
       pdf_data = %{
         name: "test_document.pdf",
         mimetype: "application/pdf",
-        data: Base.encode64("fake_pdf_data")
+        data: Base.encode64(valid_pdf_data)
       }
 
       # Set up mock expectations
