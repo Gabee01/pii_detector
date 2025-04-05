@@ -13,7 +13,7 @@ defmodule PIIDetector.AI.Anthropic.Client do
 
   @impl true
   def chat(client, opts) do
-    Logger.info("Anthropic chat request: #{inspect(opts)}")
+    Logger.debug("Anthropic chat request: #{inspect(opts)}")
     Anthropix.chat(client, opts)
   end
 end

@@ -143,11 +143,15 @@ defmodule PIIDetector.AI.ClaudeService do
       if image_data do
         Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
 
-        # Log image details for debugging
-        Logger.debug("Image MIME type: #{image_data.mimetype}, size: #{byte_size(image_data.data) |> Base.decode64!() |> byte_size()} bytes")
-
-        # Validate the image data
-        if valid_multimodal_image?(image_data) do
+        # Validate the image data is not HTML (possible redirect response)
+        if String.starts_with?(image_data.data, "PCFET0NUWV") ||
+           String.starts_with?(image_data.data, "PGh0bWw") ||
+           String.starts_with?(image_data.data, "PHhtbC") ||
+           String.starts_with?(image_data.data, "<!DOCTYPE") ||
+           String.starts_with?(image_data.data, "<html") do
+          Logger.error("Invalid image data detected: appears to be HTML/XML content rather than an image")
+          content
+        else
           content ++
             [
               %{
@@ -159,9 +163,6 @@ defmodule PIIDetector.AI.ClaudeService do
                 }
               }
             ]
-        else
-          Logger.error("Skipping invalid image data for multimodal request")
-          content
         end
       else
         content
@@ -172,11 +173,15 @@ defmodule PIIDetector.AI.ClaudeService do
       if pdf_data do
         Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
 
-        # Log PDF details for debugging
-        Logger.debug("PDF size: #{byte_size(pdf_data.data) |> Base.decode64!() |> byte_size()} bytes")
-
-        # Validate the PDF data
-        if valid_multimodal_pdf?(pdf_data) do
+        # Validate the PDF data is not HTML (possible redirect response)
+        if String.starts_with?(pdf_data.data, "PCFET0NUWV") ||
+           String.starts_with?(pdf_data.data, "PGh0bWw") ||
+           String.starts_with?(pdf_data.data, "PHhtbC") ||
+           String.starts_with?(pdf_data.data, "<!DOCTYPE") ||
+           String.starts_with?(pdf_data.data, "<html") do
+          Logger.error("Invalid PDF data detected: appears to be HTML/XML content rather than a PDF")
+          content
+        else
           content ++
             [
               %{
@@ -188,9 +193,6 @@ defmodule PIIDetector.AI.ClaudeService do
                 }
               }
             ]
-        else
-          Logger.error("Skipping invalid PDF data for multimodal request")
-          content
         end
       else
         content
@@ -198,63 +200,6 @@ defmodule PIIDetector.AI.ClaudeService do
 
     content
   end
-
-  # Check if image data is valid for multimodal request
-  defp valid_multimodal_image?(%{data: data, mimetype: mimetype}) do
-    # Ensure data is a valid base64 string
-    case Base.decode64(data) do
-      {:ok, decoded_data} ->
-        # Ensure mimetype is supported
-        supported_image_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
-        if mimetype in supported_image_types do
-          # Ensure size is within limits (3.75MB according to Anthropic docs)
-          max_size = 3.75 * 1024 * 1024
-          if byte_size(decoded_data) <= max_size do
-            true
-          else
-            Logger.error("Image too large for Claude API: #{byte_size(decoded_data)} bytes")
-            false
-          end
-        else
-          Logger.error("Unsupported image type for Claude API: #{mimetype}")
-          false
-        end
-
-      :error ->
-        Logger.error("Invalid base64 encoding for image data")
-        false
-    end
-  end
-
-  defp valid_multimodal_image?(_), do: false
-
-  # Check if PDF data is valid for multimodal request
-  defp valid_multimodal_pdf?(%{data: data}) do
-    # Ensure data is a valid base64 string
-    case Base.decode64(data) do
-      {:ok, decoded_data} ->
-        # Ensure size is within limits (4.5MB according to Anthropic docs)
-        max_size = 4.5 * 1024 * 1024
-        if byte_size(decoded_data) <= max_size do
-          # Basic check that it starts with the PDF signature
-          if String.starts_with?(decoded_data, "%PDF-") do
-            true
-          else
-            Logger.error("Invalid PDF format: data doesn't match PDF signature")
-            false
-          end
-        else
-          Logger.error("PDF too large for Claude API: #{byte_size(decoded_data)} bytes")
-          false
-        end
-
-      :error ->
-        Logger.error("Invalid base64 encoding for PDF data")
-        false
-    end
-  end
-
-  defp valid_multimodal_pdf?(_), do: false
 
   defp pii_detection_system_prompt do
     """
