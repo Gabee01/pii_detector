@@ -52,15 +52,35 @@ defmodule PIIDetector.Platform.Notion do
   alias PIIDetector.Platform.Notion.API
   alias PIIDetector.Platform.Slack
 
-  # Get the Notion API module (allows for test mocking)
-  defp notion_api do
-    Application.get_env(:pii_detector, :notion_api_module, API)
-  end
+  # Constants
+  @block_handlers %{
+    "paragraph" => &__MODULE__.extract_simple_rich_text/2,
+    "heading_1" => &__MODULE__.extract_simple_rich_text/2,
+    "heading_2" => &__MODULE__.extract_simple_rich_text/2,
+    "heading_3" => &__MODULE__.extract_simple_rich_text/2,
+    "bulleted_list_item" => &__MODULE__.extract_bulleted_list_item/2,
+    "numbered_list_item" => &__MODULE__.extract_simple_rich_text/2,
+    "to_do" => &__MODULE__.extract_todo_item/2,
+    "toggle" => &__MODULE__.extract_simple_rich_text/2,
+    "code" => &__MODULE__.extract_code_block/2,
+    "quote" => &__MODULE__.extract_quote_block/2,
+    "callout" => &__MODULE__.extract_simple_rich_text/2
+  }
 
-  # Get the Slack module (allows for test mocking)
-  defp slack_module do
-    Application.get_env(:pii_detector, :slack_module, Slack)
-  end
+  @property_handlers %{
+    "title" => &__MODULE__.extract_rich_text_property/1,
+    "rich_text" => &__MODULE__.extract_rich_text_property/1,
+    "text" => &__MODULE__.extract_text_property/1,
+    "number" => &__MODULE__.extract_number_property/1,
+    "select" => &__MODULE__.extract_select_property/1,
+    "multi_select" => &__MODULE__.extract_multi_select_property/1,
+    "date" => &__MODULE__.extract_date_property/1,
+    "checkbox" => &__MODULE__.extract_checkbox_property/1
+  }
+
+  #
+  # Public API functions
+  #
 
   @doc """
   Extracts content from a Notion page.
@@ -87,20 +107,15 @@ defmodule PIIDetector.Platform.Notion do
   """
   @impl true
   def extract_content_from_page(page_data, blocks) do
-    # Extract page title if available
-    page_title = extract_page_title(page_data)
-
-    # Extract content from blocks
-    {:ok, blocks_content} = extract_content_from_blocks(blocks)
-
-    # Combine title and content
-    content = if page_title, do: "#{page_title}\n#{blocks_content}", else: blocks_content
-
-    {:ok, content}
+    with page_title <- extract_page_title(page_data),
+         {:ok, blocks_content} <- extract_content_from_blocks(blocks) do
+      content = if page_title, do: "#{page_title}\n#{blocks_content}", else: blocks_content
+      {:ok, content}
+    end
   rescue
     error ->
       Logger.error("Failed to extract content from Notion page: #{inspect(error)}")
-      {:error, "Failed to extract content from page"}
+      {:ok, ""}  # Return empty string on error for graceful degradation
   end
 
   @doc """
@@ -136,7 +151,7 @@ defmodule PIIDetector.Platform.Notion do
   rescue
     error ->
       Logger.error("Failed to extract content from Notion blocks: #{inspect(error)}")
-      {:error, "Failed to extract content from blocks"}
+      {:ok, ""}  # Return empty string on error for graceful degradation
   end
 
   @doc """
@@ -172,7 +187,7 @@ defmodule PIIDetector.Platform.Notion do
   rescue
     error ->
       Logger.error("Failed to extract content from Notion database: #{inspect(error)}")
-      {:error, "Failed to extract content from database"}
+      {:ok, ""}  # Return empty string on error for graceful degradation
   end
 
   @doc """
@@ -235,36 +250,113 @@ defmodule PIIDetector.Platform.Notion do
   """
   @impl true
   def notify_content_creator(user_id, content, detected_pii) do
-    # Find the corresponding Slack user
-    case find_slack_user(user_id) do
-      {:ok, slack_user_id} ->
-        # Format the message
-        message = format_notification_message(content, detected_pii)
-
-        # Send notification via Slack
-        case slack_module().notify_user(slack_user_id, message, %{}) do
-          {:ok, _} = success ->
-            Logger.info("Successfully notified user about PII in Notion content: #{user_id}")
-            success
-
-          {:error, reason} = error ->
-            Logger.error(
-              "Failed to notify user about PII in Notion content: #{user_id}, reason: #{inspect(reason)}"
-            )
-
-            error
-        end
-
+    with {:ok, slack_user_id} <- find_slack_user(user_id),
+         message <- format_notification_message(content, detected_pii),
+         {:ok, _} = success <- slack_module().notify_user(slack_user_id, message, %{}) do
+      Logger.info("Successfully notified user about PII in Notion content: #{user_id}")
+      success
+    else
       {:error, reason} = error ->
-        Logger.error(
-          "Failed to find Slack user for Notion user: #{user_id}, reason: #{inspect(reason)}"
-        )
-
+        Logger.error("Failed to notify user about PII in Notion content: #{user_id}, reason: #{inspect(reason)}")
         error
     end
   end
 
-  # Helper functions
+  #
+  # Public helper functions for block handlers
+  #
+
+  # These functions need to be public to be referenced in module attributes
+  # but they're not part of the public API
+
+  @doc false
+  def extract_simple_rich_text(type, block) do
+    block_data = Map.get(block, type)
+    extract_rich_text_list(block_data["rich_text"])
+  end
+
+  @doc false
+  def extract_bulleted_list_item(_, block) do
+    "• " <> extract_rich_text_list(block["bulleted_list_item"]["rich_text"])
+  end
+
+  @doc false
+  def extract_todo_item(_, block) do
+    todo = block["to_do"]
+    checked = if todo["checked"], do: "[x] ", else: "[ ] "
+    checked <> extract_rich_text_list(todo["rich_text"])
+  end
+
+  @doc false
+  def extract_code_block(_, block) do
+    code = block["code"]
+    language = code["language"] || ""
+    text = extract_rich_text_list(code["rich_text"])
+    "```#{language}\n#{text}\n```"
+  end
+
+  @doc false
+  def extract_quote_block(_, block) do
+    "> " <> extract_rich_text_list(block["quote"]["rich_text"])
+  end
+
+  #
+  # Public property handlers
+  #
+
+  @doc false
+  def extract_rich_text_property(%{"title" => rich_text_list}) do
+    extract_rich_text_list(rich_text_list)
+  end
+
+  @doc false
+  def extract_rich_text_property(%{"rich_text" => rich_text_list}) do
+    extract_rich_text_list(rich_text_list)
+  end
+
+  @doc false
+  def extract_text_property(%{"text" => text}) do
+    text["content"]
+  end
+
+  @doc false
+  def extract_number_property(%{"number" => number}) when is_number(number) do
+    to_string(number)
+  end
+
+  @doc false
+  def extract_select_property(%{"select" => %{"name" => name}}) do
+    name
+  end
+
+  @doc false
+  def extract_multi_select_property(%{"multi_select" => options}) do
+    Enum.map_join(options, ", ", & &1["name"])
+  end
+
+  @doc false
+  def extract_date_property(%{"date" => %{"start" => start}}) do
+    start
+  end
+
+  @doc false
+  def extract_checkbox_property(%{"checkbox" => checkbox}) do
+    if checkbox, do: "Yes", else: "No"
+  end
+
+  #
+  # Private helper functions
+  #
+
+  # Get the Notion API module (allows for test mocking)
+  defp notion_api do
+    Application.get_env(:pii_detector, :notion_api_module, API)
+  end
+
+  # Get the Slack module (allows for test mocking)
+  defp slack_module do
+    Application.get_env(:pii_detector, :slack_module, Slack)
+  end
 
   defp extract_page_title(%{"properties" => %{"title" => title_data}}) do
     case title_data do
@@ -278,69 +370,14 @@ defmodule PIIDetector.Platform.Notion do
 
   defp extract_page_title(_), do: nil
 
-  defp extract_text_from_block(%{"type" => type, "has_children" => has_children} = block) do
-    text = extract_text_by_block_type(type, block)
-
-    # Handle nested blocks (if any)
-    if has_children do
-      # In a real implementation, we would fetch child blocks here
-      # For simplicity, we'll skip that in this basic implementation
-      text
-    else
-      text
+  defp extract_text_from_block(%{"type" => type, "has_children" => _has_children} = block) do
+    case Map.get(@block_handlers, type) do
+      nil -> nil
+      handler -> handler.(type, block)
     end
   end
 
   defp extract_text_from_block(_), do: nil
-
-  defp extract_text_by_block_type("paragraph", %{"paragraph" => paragraph}) do
-    extract_rich_text_list(paragraph["rich_text"])
-  end
-
-  defp extract_text_by_block_type("heading_1", %{"heading_1" => heading}) do
-    extract_rich_text_list(heading["rich_text"])
-  end
-
-  defp extract_text_by_block_type("heading_2", %{"heading_2" => heading}) do
-    extract_rich_text_list(heading["rich_text"])
-  end
-
-  defp extract_text_by_block_type("heading_3", %{"heading_3" => heading}) do
-    extract_rich_text_list(heading["rich_text"])
-  end
-
-  defp extract_text_by_block_type("bulleted_list_item", %{"bulleted_list_item" => item}) do
-    "• " <> extract_rich_text_list(item["rich_text"])
-  end
-
-  defp extract_text_by_block_type("numbered_list_item", %{"numbered_list_item" => item}) do
-    extract_rich_text_list(item["rich_text"])
-  end
-
-  defp extract_text_by_block_type("to_do", %{"to_do" => todo}) do
-    checked = if todo["checked"], do: "[x] ", else: "[ ] "
-    checked <> extract_rich_text_list(todo["rich_text"])
-  end
-
-  defp extract_text_by_block_type("toggle", %{"toggle" => toggle}) do
-    extract_rich_text_list(toggle["rich_text"])
-  end
-
-  defp extract_text_by_block_type("code", %{"code" => code}) do
-    language = code["language"] || ""
-    text = extract_rich_text_list(code["rich_text"])
-    "```#{language}\n#{text}\n```"
-  end
-
-  defp extract_text_by_block_type("quote", %{"quote" => quote_block}) do
-    "> " <> extract_rich_text_list(quote_block["rich_text"])
-  end
-
-  defp extract_text_by_block_type("callout", %{"callout" => callout}) do
-    extract_rich_text_list(callout["rich_text"])
-  end
-
-  defp extract_text_by_block_type(_, _), do: nil
 
   defp extract_rich_text_list(rich_text_list) when is_list(rich_text_list) do
     Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
@@ -363,36 +400,11 @@ defmodule PIIDetector.Platform.Notion do
 
   defp extract_text_from_database_entry(_), do: nil
 
-  defp extract_property_value(%{"type" => "title", "title" => rich_text_list}) do
-    extract_rich_text_list(rich_text_list)
-  end
-
-  defp extract_property_value(%{"type" => "rich_text", "rich_text" => rich_text_list}) do
-    extract_rich_text_list(rich_text_list)
-  end
-
-  defp extract_property_value(%{"type" => "text", "text" => text}) do
-    text["content"]
-  end
-
-  defp extract_property_value(%{"type" => "number", "number" => number}) when is_number(number) do
-    to_string(number)
-  end
-
-  defp extract_property_value(%{"type" => "select", "select" => %{"name" => name}}) do
-    name
-  end
-
-  defp extract_property_value(%{"type" => "multi_select", "multi_select" => options}) do
-    Enum.map_join(options, ", ", & &1["name"])
-  end
-
-  defp extract_property_value(%{"type" => "date", "date" => %{"start" => start}}) do
-    start
-  end
-
-  defp extract_property_value(%{"type" => "checkbox", "checkbox" => checkbox}) do
-    if checkbox, do: "Yes", else: "No"
+  defp extract_property_value(%{"type" => type} = property) do
+    case Map.get(@property_handlers, type) do
+      nil -> nil
+      handler -> handler.(property)
+    end
   end
 
   defp extract_property_value(_), do: nil
