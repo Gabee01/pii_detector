@@ -19,4 +19,10 @@ defmodule PIIDetector.FileService.Behaviour do
   Typically converts to base64 and returns metadata.
   """
   @callback process_pdf(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
+
+  @doc """
+  Process a file based on its MIME type.
+  Automatically determines file type and delegates to the appropriate processor.
+  """
+  @callback process_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 end

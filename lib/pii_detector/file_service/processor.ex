@@ -70,6 +70,24 @@ defmodule PIIDetector.FileService.Processor do
     end
   end
 
+  @impl true
+  def process_file(file, opts \\ [])
+
+  def process_file(%{"mimetype" => mimetype} = file, opts) do
+    cond do
+      String.starts_with?(mimetype, "image/") ->
+        process_image(file, opts)
+      mimetype == "application/pdf" ->
+        process_pdf(file, opts)
+      true ->
+        {:error, "Unsupported file type: #{mimetype}"}
+    end
+  end
+
+  def process_file(file, _opts) do
+    {:error, "Invalid file object: #{inspect(file)}"}
+  end
+
   # Private helpers for downloading and validating content
 
   defp handle_redirect(resp_headers, original_headers, req_module) do

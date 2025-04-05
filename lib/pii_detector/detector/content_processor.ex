@@ -121,7 +121,9 @@ defmodule PIIDetector.Detector.ContentProcessor do
 
   defp process_image_file(nil), do: nil
   defp process_image_file(file) do
-    case file_downloader().process_image(file, []) do
+    file_adapter = determine_file_adapter(file)
+
+    case file_adapter.process_file(file, []) do
       {:ok, data} -> data
       {:error, reason} ->
         Logger.error("Failed to process image for PII detection: #{inspect(reason)}")
@@ -131,7 +133,9 @@ defmodule PIIDetector.Detector.ContentProcessor do
 
   defp process_pdf_file(nil), do: nil
   defp process_pdf_file(file) do
-    case file_downloader().process_pdf(file, []) do
+    file_adapter = determine_file_adapter(file)
+
+    case file_adapter.process_file(file, []) do
       {:ok, data} -> data
       {:error, reason} ->
         Logger.error("Failed to process PDF for PII detection: #{inspect(reason)}")
@@ -139,7 +143,20 @@ defmodule PIIDetector.Detector.ContentProcessor do
     end
   end
 
-  defp file_downloader do
-    Application.get_env(:pii_detector, :file_downloader, PIIDetector.FileDownloader)
+  # Determine which file adapter to use based on source platform
+  defp determine_file_adapter(file) do
+    cond do
+      # Check for Slack specific attributes
+      Map.has_key?(file, "url_private") and not Map.has_key?(file, "type") ->
+        Application.get_env(:pii_detector, :slack_file_adapter, PIIDetector.Platform.Slack.FileAdapter)
+
+      # Check for Notion specific attributes (file or external type)
+      Map.has_key?(file, "type") and file["type"] in ["file", "external"] ->
+        Application.get_env(:pii_detector, :notion_file_adapter, PIIDetector.Platform.Notion.FileAdapter)
+
+      # Use the file service processor directly for all other cases
+      true ->
+        Application.get_env(:pii_detector, :file_service, PIIDetector.FileService.Processor)
+    end
   end
 end

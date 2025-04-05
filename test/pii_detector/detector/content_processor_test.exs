@@ -3,7 +3,7 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
   import Mox
 
   alias PIIDetector.Detector.ContentProcessor
-  alias PIIDetector.FileDownloaderMock
+  alias PIIDetector.FileServiceMock
 
   # Ensure mocks are verified when the test exits
   setup :verify_on_exit!
@@ -92,9 +92,9 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
 
   describe "process_files_for_multimodal/1" do
     test "processes image files correctly" do
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_image, fn file, _opts ->
+      # Set up expectations for FileService
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
         assert file["name"] == "test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -120,9 +120,9 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     end
 
     test "processes PDF files correctly" do
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_pdf, fn file, _opts ->
+      # Set up expectations for FileService
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
         assert file["name"] == "test_doc.pdf"
         assert file["mimetype"] == "application/pdf"
 
@@ -148,15 +148,17 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     end
 
     test "processes both image and PDF files" do
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_image, fn file, _opts ->
-        assert file["name"] == "test_image.jpg"
-        {:ok, %{data: "base64_image_data", mimetype: "image/jpeg", name: "test_image.jpg"}}
-      end)
-      |> expect(:process_pdf, fn file, _opts ->
-        assert file["name"] == "test_doc.pdf"
-        {:ok, %{data: "base64_pdf_data", mimetype: "application/pdf", name: "test_doc.pdf"}}
+      # Set up expectations for FileService using stub
+      FileServiceMock
+      |> stub(:process_file, fn file, _opts ->
+        case file["mimetype"] do
+          "image/jpeg" ->
+            {:ok, %{data: "base64_image_data", mimetype: "image/jpeg", name: file["name"]}}
+          "application/pdf" ->
+            {:ok, %{data: "base64_pdf_data", mimetype: "application/pdf", name: file["name"]}}
+          _ ->
+            {:error, "Unsupported file type"}
+        end
       end)
 
       files = [
@@ -183,17 +185,17 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     end
 
     test "handles processing errors gracefully" do
-      # Set up expectations for FileDownloader to simulate errors
-      FileDownloaderMock
-      |> expect(:process_image, fn _file, _opts ->
-        {:error, "Failed to download image"}
+      # Set up expectations for FileService to simulate errors
+      FileServiceMock
+      |> expect(:process_file, fn _file, _opts ->
+        {:error, "Failed to download file"}
       end)
 
       files = [
         %{
-          "name" => "error_image.jpg",
+          "name" => "error_file.jpg",
           "mimetype" => "image/jpeg",
-          "url_private" => "https://example.com/error_image.jpg",
+          "url_private" => "https://example.com/error_file.jpg",
           "token" => "test-token"
         }
       ]

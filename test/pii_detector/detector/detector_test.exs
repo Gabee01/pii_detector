@@ -5,7 +5,7 @@ defmodule PIIDetector.DetectorTest do
   alias PIIDetector.AI.AIServiceMock
   alias PIIDetector.Detector
   alias PIIDetector.DetectorMock
-  alias PIIDetector.FileDownloaderMock
+  alias PIIDetector.FileServiceMock
 
   # Ensure mocks are verified when the test exits
   setup :verify_on_exit!
@@ -136,9 +136,9 @@ defmodule PIIDetector.DetectorTest do
       jpeg_signature = <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01>>
       valid_jpeg_data = jpeg_signature <> "fake_image_data"
 
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_image, fn file, _opts ->
+      # Set up expectations for FileService
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
         assert file["name"] == "pii_test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -189,9 +189,9 @@ defmodule PIIDetector.DetectorTest do
       pdf_signature = "%PDF-1.5\n"
       valid_pdf_data = pdf_signature <> "fake_pdf_content"
 
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_pdf, fn file, _opts ->
+      # Set up expectations for FileService
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
         assert file["name"] == "pii_financial.pdf"
         assert file["mimetype"] == "application/pdf"
 
@@ -238,9 +238,9 @@ defmodule PIIDetector.DetectorTest do
     end
 
     test "handles non-PII files correctly" do
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_image, fn file, _opts ->
+      # Set up expectations for FileService
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
         assert file["name"] == "normal_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -318,9 +318,9 @@ defmodule PIIDetector.DetectorTest do
       jpeg_signature = <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01>>
       valid_jpeg_data = jpeg_signature <> "fake_image_data"
 
-      # Set up expectations for FileDownloader
-      FileDownloaderMock
-      |> expect(:process_image, fn file, _opts ->
+      # Set up expectations for FileService
+      FileServiceMock
+      |> expect(:process_file, fn file, _opts ->
         assert file["name"] == "pii_test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
