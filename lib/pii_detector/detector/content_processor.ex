@@ -150,12 +150,15 @@ defmodule PIIDetector.Detector.ContentProcessor do
   end
 
   defp process_any_file(file) do
-    Logger.info("Processing file for multimodal analysis: #{inspect(Map.get(file, "name") || Map.get(file, :name))}")
+    Logger.info(
+      "Processing file for multimodal analysis: #{inspect(Map.get(file, "name") || Map.get(file, :name))}"
+    )
 
-    with {:ok, processed_file} <- file_service().prepare_file(file, []) do
-      # Return processed file data
-      processed_file
-    else
+    case file_service().prepare_file(file, []) do
+      {:ok, processed_file} ->
+        # Return processed file data
+        processed_file
+
       {:error, reason} ->
         Logger.error("Failed to process file: #{inspect(reason)}")
         nil

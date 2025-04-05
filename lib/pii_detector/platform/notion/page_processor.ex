@@ -43,7 +43,9 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
         is_workspace_page = workspace_level_page?(page)
 
         if is_workspace_page do
-          Logger.warning("Page #{page_id} is a workspace-level page which cannot be archived via API")
+          Logger.warning(
+            "Page #{page_id} is a workspace-level page which cannot be archived via API"
+          )
         end
 
         # Fetch blocks data
@@ -54,7 +56,8 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
         process_child_pages(blocks_result, page_id, user_id)
 
         # Extract content and detect PII
-        with {:ok, content, files} <- notion_module().extract_page_content(page_result, blocks_result),
+        with {:ok, content, files} <-
+               notion_module().extract_page_content(page_result, blocks_result),
              {:ok, pii_result} <- detect_pii_in_content(content, files) do
           # Handle PII result
           handle_pii_result(pii_result, page_id, user_id, is_workspace_page)
@@ -121,19 +124,23 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
   defp process_files(files) do
     Logger.debug("Processing Notion files: #{inspect(files, pretty: true, limit: 1000)}")
 
-    processed_files = Enum.reduce(files, [], fn file, acc ->
-      Logger.debug("Processing Notion file: #{inspect(file, pretty: true)}")
+    processed_files =
+      Enum.reduce(files, [], fn file, acc ->
+        Logger.debug("Processing Notion file: #{inspect(file, pretty: true)}")
 
-      case FileAdapter.process_file(file) do
-        {:ok, processed_file} ->
-          Logger.debug("Successfully processed file: #{processed_file.name}, mimetype: #{processed_file.mimetype}")
-          [processed_file | acc]
+        case FileAdapter.process_file(file) do
+          {:ok, processed_file} ->
+            Logger.debug(
+              "Successfully processed file: #{processed_file.name}, mimetype: #{processed_file.mimetype}"
+            )
 
-        {:error, reason} ->
-          Logger.warning("Failed to process file: #{inspect(reason)}")
-          acc
-      end
-    end)
+            [processed_file | acc]
+
+          {:error, reason} ->
+            Logger.warning("Failed to process file: #{inspect(reason)}")
+            acc
+        end
+      end)
 
     Logger.debug("Processed files result: #{length(processed_files)} files processed")
     processed_files

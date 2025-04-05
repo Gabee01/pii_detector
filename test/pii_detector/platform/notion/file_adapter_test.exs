@@ -2,8 +2,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
   use ExUnit.Case, async: true
   import Mox
 
-  alias PIIDetector.Platform.Notion.FileAdapter
   alias PIIDetector.FileServiceMock
+  alias PIIDetector.Platform.Notion.FileAdapter
 
   # We need to make the module linked to the test process
   setup :set_mox_from_context
@@ -44,7 +44,9 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
       # Set up the mock to use prepare_file instead
       FileServiceMock
       |> expect(:prepare_file, fn file, _opts ->
-        assert file["url"] == "https://s3.us-west-2.amazonaws.com/secure.notion-static.com/test-file.png"
+        assert file["url"] ==
+                 "https://s3.us-west-2.amazonaws.com/secure.notion-static.com/test-file.png"
+
         assert file["mimetype"] == "image/png"
         assert file["name"] == "test-file.png"
         # Headers should now be present
@@ -228,7 +230,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapterTest do
       file_object = %{
         "type" => "file",
         "file" => %{
-          "url" => "https://prod-files-secure.s3.us-west-2.amazonaws.com/12345/file.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA..."
+          "url" =>
+            "https://prod-files-secure.s3.us-west-2.amazonaws.com/12345/file.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA..."
         }
       }
 

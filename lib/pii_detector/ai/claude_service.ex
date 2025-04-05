@@ -118,11 +118,12 @@ defmodule PIIDetector.AI.ClaudeService do
     client = anthropic_client().init(get_api_key())
 
     # Choose which file data to use (prefer image data if present)
-    file_data = case {image_data, pdf_data} do
-      {nil, nil} -> nil
-      {nil, pdf} -> pdf
-      {img, _} -> img
-    end
+    file_data =
+      case {image_data, pdf_data} do
+        {nil, nil} -> nil
+        {nil, pdf} -> pdf
+        {img, _} -> img
+      end
 
     # Build content array with text and file data for multimodal request
     content = build_multimodal_content(text, file_data)
@@ -231,46 +232,63 @@ defmodule PIIDetector.AI.ClaudeService do
       Logger.debug("No file data to add to multimodal content")
       content
     else
-      # Normalize the data structure - support both atom and string keys
-      name = image_data[:name] || image_data["name"] || "unnamed"
-      mimetype = image_data[:mimetype] || image_data["mimetype"] || "application/octet-stream"
-      data = image_data[:data] || image_data["data"]
+      add_valid_image_to_content(content, image_data)
+    end
+  end
 
-      Logger.debug("File name: #{name}, mimetype: #{mimetype}, data length: #{String.length(data)}")
+  # Helper function to process valid image data and add it to content
+  defp add_valid_image_to_content(content, image_data) do
+    # Normalize the data structure - support both atom and string keys
+    name = image_data[:name] || image_data["name"] || "unnamed"
+    mimetype = image_data[:mimetype] || image_data["mimetype"] || "application/octet-stream"
+    data = image_data[:data] || image_data["data"]
 
-      # Check if the base64 data appears to be HTML content
-      if html_base64?(data) do
-        Logger.error("Detected HTML content in base64 data - not adding file")
-        content
-      else
-        # Determine the appropriate format based on MIME type
-        {type, media_type} = case mimetype do
-          "application/pdf" ->
-            {"document", "application/pdf"}
-          mime when mime in ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"] ->
-            {"image", mime}
-          _ ->
-            # Default to image type for any other file, Claude will try its best
-            {"image", mimetype}
-        end
+    Logger.debug("File name: #{name}, mimetype: #{mimetype}, data length: #{String.length(data)}")
 
-        Logger.debug("Adding file as type: #{type}, media_type: #{media_type}")
+    # Check if the base64 data appears to be HTML content
+    if html_base64?(data) do
+      Logger.error("Detected HTML content in base64 data - not adding file")
+      content
+    else
+      append_file_content(content, mimetype, data)
+    end
+  end
 
-        updated_content = content ++
-          [
-            %{
-              type: type,
-              source: %{
-                type: "base64",
-                media_type: media_type,
-                data: data
-              }
+  # Helper function to determine the file type and append to content
+  defp append_file_content(content, mimetype, data) do
+    {type, media_type} = get_file_type_and_media(mimetype)
+    Logger.debug("Adding file as type: #{type}, media_type: #{media_type}")
+
+    updated_content =
+      content ++
+        [
+          %{
+            type: type,
+            source: %{
+              type: "base64",
+              media_type: media_type,
+              data: data
             }
-          ]
+          }
+        ]
 
-        Logger.debug("Successfully added file to multimodal content")
-        updated_content
-      end
+    Logger.debug("Successfully added file to multimodal content")
+    updated_content
+  end
+
+  # Helper function to determine file type and media type based on mimetype
+  defp get_file_type_and_media(mimetype) do
+    case mimetype do
+      "application/pdf" ->
+        {"document", "application/pdf"}
+
+      mime
+      when mime in ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"] ->
+        {"image", mime}
+
+      _ ->
+        # Default to image type for any other file, Claude will try its best
+        {"image", mimetype}
     end
   end
 

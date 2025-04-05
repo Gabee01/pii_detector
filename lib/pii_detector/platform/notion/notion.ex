@@ -546,7 +546,9 @@ defmodule PIIDetector.Platform.Notion do
 
   # Fetch children blocks and add them to the parent block
   defp fetch_and_add_children(block) do
-    Logger.debug("Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}")
+    Logger.debug(
+      "Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}"
+    )
 
     case notion_api().get_blocks(block["id"], nil, []) do
       {:ok, child_blocks} ->
@@ -556,6 +558,7 @@ defmodule PIIDetector.Platform.Notion do
         Logger.warning(
           "Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}"
         )
+
         block
 
       unexpected ->

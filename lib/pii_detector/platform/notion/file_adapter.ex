@@ -35,8 +35,11 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
     {:error, "Empty file object"}
   end
 
-  def process_file(%{"type" => "file", "file" => file_data} = _file_object, opts) when is_map(file_data) do
-    Logger.debug("Processing Notion file of type 'file': #{inspect(file_data, pretty: true, limit: 100)}")
+  def process_file(%{"type" => "file", "file" => file_data} = _file_object, opts)
+      when is_map(file_data) do
+    Logger.debug(
+      "Processing Notion file of type 'file': #{inspect(file_data, pretty: true, limit: 100)}"
+    )
 
     with {:ok, url} <- extract_url(file_data),
          {:ok, file_name} <- extract_file_name(url) do
@@ -63,8 +66,11 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
     end
   end
 
-  def process_file(%{"type" => "external", "external" => external_data} = _file_object, opts) when is_map(external_data) do
-    Logger.debug("Processing Notion external file: #{inspect(external_data, pretty: true, limit: 100)}")
+  def process_file(%{"type" => "external", "external" => external_data} = _file_object, opts)
+      when is_map(external_data) do
+    Logger.debug(
+      "Processing Notion external file: #{inspect(external_data, pretty: true, limit: 100)}"
+    )
 
     with {:ok, url} <- extract_external_url(external_data),
          {:ok, file_name} <- extract_file_name(url) do
@@ -92,7 +98,8 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
   end
 
   # Handle image type files from Notion
-  def process_file(%{"type" => "image", "image" => image_data} = _file_object, opts) when is_map(image_data) do
+  def process_file(%{"type" => "image", "image" => image_data} = _file_object, opts)
+      when is_map(image_data) do
     Logger.debug("Processing Notion image: #{inspect(image_data, pretty: true, limit: 100)}")
 
     # Image data can be in either "file" or "external" format, handle both
@@ -110,21 +117,32 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
   end
 
   def process_file(file_object, _opts) do
-    Logger.warning("Unsupported Notion file object format: #{inspect(file_object, pretty: true, limit: 100)}")
+    Logger.warning(
+      "Unsupported Notion file object format: #{inspect(file_object, pretty: true, limit: 100)}"
+    )
+
     {:error, "Unsupported file object format"}
   end
 
   # Private functions
 
   defp extract_url(%{"url" => url}) when is_binary(url) and url != "", do: {:ok, url}
+
   defp extract_url(file_data) do
-    Logger.warning("Invalid Notion file structure - url missing or invalid: #{inspect(file_data)}")
+    Logger.warning(
+      "Invalid Notion file structure - url missing or invalid: #{inspect(file_data)}"
+    )
+
     {:error, "Invalid Notion file object structure"}
   end
 
   defp extract_external_url(%{"url" => url}) when is_binary(url) and url != "", do: {:ok, url}
+
   defp extract_external_url(external_data) do
-    Logger.warning("Invalid external file structure - url missing or invalid: #{inspect(external_data)}")
+    Logger.warning(
+      "Invalid external file structure - url missing or invalid: #{inspect(external_data)}"
+    )
+
     {:error, "Invalid external file object structure"}
   end
 
@@ -147,23 +165,26 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
   defp get_mime_type(file_name) do
     extension = Path.extname(file_name) |> String.downcase()
 
-    case extension do
-      ".pdf" -> "application/pdf"
-      ".png" -> "image/png"
-      ".jpg" -> "image/jpeg"
-      ".jpeg" -> "image/jpeg"
-      ".gif" -> "image/gif"
-      ".webp" -> "image/webp"
-      ".doc" -> "application/msword"
-      ".docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ".xls" -> "application/vnd.ms-excel"
-      ".xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      ".ppt" -> "application/vnd.ms-powerpoint"
-      ".pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-      ".txt" -> "text/plain"
-      ".csv" -> "text/csv"
-      _ -> "application/octet-stream" # Default MIME type for binary data
-    end
+    # Use a map for mime type lookup instead of a large case statement
+    mime_types = %{
+      ".pdf" => "application/pdf",
+      ".png" => "image/png",
+      ".jpg" => "image/jpeg",
+      ".jpeg" => "image/jpeg",
+      ".gif" => "image/gif",
+      ".webp" => "image/webp",
+      ".doc" => "application/msword",
+      ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".xls" => "application/vnd.ms-excel",
+      ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ".ppt" => "application/vnd.ms-powerpoint",
+      ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      ".txt" => "text/plain",
+      ".csv" => "text/csv"
+    }
+
+    # Default to octet-stream if extension not found in map
+    Map.get(mime_types, extension, "application/octet-stream")
   end
 
   defp get_file_service do
@@ -183,7 +204,7 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
 
     # For AWS S3 pre-signed URLs, don't add authorization headers
     # as they already include authentication information
-    if is_aws_s3_url?(url) do
+    if aws_s3_url?(url) do
       # Return minimal headers for S3
       [
         {"User-Agent", "PIIDetector/1.0 (Notion File Processor)"},
@@ -192,6 +213,7 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
     else
       # For Notion API endpoints, include authorization
       token = get_token(opts)
+
       [
         {"Authorization", "Bearer #{token}"},
         {"User-Agent", "PIIDetector/1.0 (Notion File Processor)"},
@@ -201,10 +223,10 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
   end
 
   # Check if URL is an AWS S3 URL
-  defp is_aws_s3_url?(url) do
+  defp aws_s3_url?(url) do
     String.contains?(url, "s3.") and
-    (String.contains?(url, "amazonaws.com") or
-     String.contains?(url, "aws.amazon.com")) and
-    String.contains?(url, "X-Amz-")
+      (String.contains?(url, "amazonaws.com") or
+         String.contains?(url, "aws.amazon.com")) and
+      String.contains?(url, "X-Amz-")
   end
 end

@@ -375,11 +375,12 @@ defmodule PIIDetector.DetectorTest do
         assert file[:url] == "https://example.com/document.pdf"
         assert file[:name] == "document.pdf"
 
-        {:ok, %{
-          name: "document.pdf",
-          mimetype: "application/pdf",
-          data: Base.encode64("PDF file content")
-        }}
+        {:ok,
+         %{
+           name: "document.pdf",
+           mimetype: "application/pdf",
+           data: Base.encode64("PDF file content")
+         }}
       end)
 
       AIServiceMock
