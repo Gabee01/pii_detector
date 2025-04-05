@@ -43,6 +43,7 @@ config :pii_detector, Oban, testing: :manual
 config :pii_detector, :pii_detector_module, PIIDetector.DetectorMock
 config :pii_detector, :slack_api_module, PIIDetector.Platform.Slack.APIMock
 
+
 # Configure AI service for testing
 config :pii_detector, :ai_service, PIIDetector.AI.AIServiceMock
 
