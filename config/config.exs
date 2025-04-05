@@ -64,7 +64,9 @@ config :logger, :console,
     :error,
     :reason,
     :categories,
-    :response
+    :response,
+    :page_id,
+    :stacktrace
   ]
 
 # Use Jason for JSON parsing in Phoenix
