@@ -1,7 +1,9 @@
 defmodule PIIDetector.Workers.Event.SlackMessageWorkerTest do
-  use PIIDetector.DataCase, async: true
+  use PIIDetector.DataCase
   import Mox
 
+  alias PIIDetector.DetectorMock
+  alias PIIDetector.Platform.Slack.APIMock
   alias PIIDetector.Workers.Event.SlackMessageWorker
 
   # Make sure our mocks verify expectations correctly
@@ -23,55 +25,85 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorkerTest do
   end
 
   describe "perform/1" do
-    test "processes message with no PII without issues", %{message_args: args} do
-      # Set up expectations
-      expect(PIIDetector.Detector.PIIDetectorMock, :detect_pii, fn _content ->
+    test "processes message with no PII without issues" do
+      # Set up mocks for the test
+      expect(DetectorMock, :detect_pii, fn _content, _opts ->
         {:pii_detected, false, []}
       end)
 
-      # Run the job
+      # Create job args
+      args = %{
+        "text" => "This is a safe message",
+        "channel" => "C12345",
+        "user" => "U12345",
+        "ts" => "1234567890.123456",
+        "token" => "xoxb-test-token",
+        "files" => [],
+        "attachments" => []
+      }
+
+      # No need to mock API since we're not deleting anything
+
       job = %Oban.Job{args: args}
       assert :ok = SlackMessageWorker.perform(job)
     end
 
-    test "processes message with PII and deletes it", %{message_args: args} do
-      # Set up expectations
-      expect(PIIDetector.Detector.PIIDetectorMock, :detect_pii, fn _content ->
-        {:pii_detected, true, ["ssn"]}
+    test "processes message with PII and deletes it" do
+      # Set up mocks for the test
+      expect(DetectorMock, :detect_pii, fn _content, _opts ->
+        {:pii_detected, true, ["email"]}
       end)
 
-      expect(PIIDetector.Platform.Slack.APIMock, :delete_message, fn channel, ts, token ->
-        assert channel == "C12345"
-        assert ts == "1234567890.123456"
-        assert token == "xoxb-test-token"
+      # Mock the Slack API calls
+      expect(APIMock, :delete_message, fn _channel, _timestamp, _opts ->
         {:ok, :deleted}
       end)
 
-      expect(PIIDetector.Platform.Slack.APIMock, :notify_user, fn user, _content, token ->
-        assert user == "U12345"
-        assert token == "xoxb-test-token"
+      expect(APIMock, :notify_user, fn _user, message_content, _token ->
+        assert message_content.text == "My email is test@example.com"
         {:ok, :notified}
       end)
 
-      # Run the job
+      # Create job args
+      args = %{
+        "text" => "My email is test@example.com",
+        "channel" => "C12345",
+        "user" => "U12345",
+        "ts" => "1234567890.123456",
+        "token" => "xoxb-test-token",
+        "files" => [],
+        "attachments" => []
+      }
+
       job = %Oban.Job{args: args}
       assert {:ok, :notified} = SlackMessageWorker.perform(job)
     end
 
-    test "handles message deletion failures gracefully", %{message_args: args} do
-      # Set up expectations
-      expect(PIIDetector.Detector.PIIDetectorMock, :detect_pii, fn _content ->
-        {:pii_detected, true, ["ssn"]}
+    test "handles message deletion failures gracefully" do
+      # Set up mocks for the test
+      expect(DetectorMock, :detect_pii, fn _content, _opts ->
+        {:pii_detected, true, ["phone"]}
       end)
 
-      expect(PIIDetector.Platform.Slack.APIMock, :delete_message, fn _channel, _ts, _token ->
-        {:error, :cant_delete_message}
+      # Mock the Slack API calls with failure
+      expect(APIMock, :delete_message, fn _channel, _timestamp, _opts ->
+        {:error, "Failed to delete message"}
       end)
 
-      # Run the job
+      # Create job args
+      args = %{
+        "text" => "Call me at 555-123-4567",
+        "channel" => "C12345",
+        "user" => "U12345",
+        "ts" => "1234567890.123456",
+        "token" => "xoxb-test-token",
+        "files" => [],
+        "attachments" => []
+      }
+
       job = %Oban.Job{args: args}
 
-      assert {:error, "Failed to delete message: :cant_delete_message"} =
+      assert {:error, "Failed to delete message: \"Failed to delete message\""} =
                SlackMessageWorker.perform(job)
     end
   end

@@ -1,18 +1,52 @@
 defmodule PIIDetector.AI.ClaudeService do
   @moduledoc """
-  Implementation of AIServiceBehaviour using Claude API via Anthropix.
+  Implementation of AI.Behaviour using Claude API via Anthropix.
+
+  This module is responsible for:
+
+  * Communicating with Anthropic's Claude API for PII detection
+  * Processing both text-only and multimodal (text + images/PDFs) content
+  * Building properly formatted requests for Claude's API
+  * Validating responses and extracting structured data
+  * Handling base64-encoded content to detect potential HTML content
+
+  The multimodal processing allows for PII detection in:
+  * Text messages
+  * Image files (JPG, PNG, etc.)
+  * PDF documents
+
+  The service includes validation to prevent sending problematic data to Claude's API,
+  such as HTML content that might be returned by Slack instead of actual file data.
   """
-  @behaviour PIIDetector.AI.AIServiceBehaviour
+  @behaviour PIIDetector.AI.Behaviour
 
   require Logger
 
   @doc """
   Analyzes text for personally identifiable information (PII) using Claude API.
+
+  This function:
+  1. Initializes the Anthropic client with API key
+  2. Creates a structured prompt for PII detection
+  3. Sends the request to Claude's API
+  4. Parses and normalizes the response
+
+  ## Parameters
+
+  * `text` - The text content to analyze for PII
+
+  ## Returns
+
+  * `{:ok, result}` - Map containing:
+    * `has_pii` - Boolean indicating if PII was detected
+    * `categories` - List of PII categories found (e.g. "email", "phone")
+    * `explanation` - Human-readable explanation of the findings
+  * `{:error, reason}` - Error description if the analysis failed
   """
   @impl true
   def analyze_pii(text) do
-    # Initialize Anthropix client with API key
-    client = anthropix_module().init(get_api_key())
+    # Initialize Anthropic client with API key
+    client = anthropic_client().init(get_api_key())
 
     # Create the messages for Claude
     messages = [
@@ -25,8 +59,8 @@ defmodule PIIDetector.AI.ClaudeService do
     # Get the model name from config or environment variables
     model = get_model_name()
 
-    # Send request to Claude through Anthropix
-    case anthropix_module().chat(client,
+    # Send request to Claude through Anthropic client
+    case anthropic_client().chat(client,
            model: model,
            messages: messages,
            system: pii_detection_system_prompt(),
@@ -42,10 +76,82 @@ defmodule PIIDetector.AI.ClaudeService do
     end
   end
 
+  @doc """
+  Analyzes text and visual content for personally identifiable information (PII)
+  using Claude's multimodal API capabilities.
+
+  This function handles three types of content simultaneously:
+  1. Text data for analysis
+  2. Optional image data (JPEG, PNG, etc.) in base64 format
+  3. Optional PDF data in base64 format
+
+  The function:
+  1. Initializes the Anthropic client with API key
+  2. Builds a multimodal content array combining text, images, and/or PDFs
+  3. Validates base64 data to filter out HTML content that may cause API errors
+  4. Sends the multimodal request to Claude's API
+  5. Parses and normalizes the response
+
+  ## Parameters
+
+  * `text` - The text content to analyze for PII
+  * `image_data` - Optional map with base64-encoded image details:
+    * `data` - Base64-encoded image content
+    * `mimetype` - The MIME type of the image
+    * `name` - Filename or identifier
+  * `pdf_data` - Optional map with base64-encoded PDF details:
+    * `data` - Base64-encoded PDF content
+    * `mimetype` - Should be "application/pdf"
+    * `name` - Filename or identifier
+
+  ## Returns
+
+  * `{:ok, result}` - Map containing:
+    * `has_pii` - Boolean indicating if PII was detected
+    * `categories` - List of PII categories found (e.g. "email", "phone")
+    * `explanation` - Human-readable explanation of the findings
+  * `{:error, reason}` - Error description if the analysis failed
+  """
+  @impl true
+  def analyze_pii_multimodal(text, image_data, pdf_data) do
+    # Initialize Anthropic client with API key
+    client = anthropic_client().init(get_api_key())
+
+    # Build content array with text and images/PDFs for multimodal request
+    content = build_multimodal_content(text, image_data, pdf_data)
+
+    # Create the messages for Claude
+    messages = [
+      %{
+        role: "user",
+        content: content
+      }
+    ]
+
+    # Get the model name from config or environment variables
+    model = get_model_name()
+
+    # Send request to Claude through Anthropic client
+    case anthropic_client().chat(client,
+           model: model,
+           messages: messages,
+           system: pii_detection_system_prompt(),
+           temperature: 0.1,
+           max_tokens: 1024
+         ) do
+      {:ok, response} ->
+        parse_claude_response(response)
+
+      {:error, reason} ->
+        Logger.error("Claude multimodal API request failed #{inspect(reason)}")
+        {:error, "Claude multimodal API request failed"}
+    end
+  end
+
   # Private helper functions
 
-  defp anthropix_module do
-    Application.get_env(:pii_detector, :anthropix_module, Anthropix)
+  defp anthropic_client do
+    Application.get_env(:pii_detector, :anthropic_client, PIIDetector.AI.Anthropic.Client)
   end
 
   defp get_api_key do
@@ -87,6 +193,103 @@ defmodule PIIDetector.AI.ClaudeService do
     """
   end
 
+  @doc false
+  # Builds a content array suitable for Claude's multimodal API combining text, images, and PDFs
+  defp build_multimodal_content(text, image_data, pdf_data) do
+    # Start with the text prompt
+    prompt_text = create_pii_detection_prompt(text)
+
+    content = [
+      %{
+        type: "text",
+        text: prompt_text
+      }
+    ]
+
+    # Add image if present
+    content = add_image_to_content(content, image_data)
+
+    # Add PDF if present
+    content = add_pdf_to_content(content, pdf_data)
+
+    content
+  end
+
+  @doc false
+  # Adds image data to the multimodal content array if present and valid
+  defp add_image_to_content(content, nil), do: content
+
+  defp add_image_to_content(content, image_data) do
+    Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
+
+    # Check if the base64 data appears to be HTML content
+    if html_base64?(image_data.data) do
+      Logger.error("Detected HTML content in base64 data - not adding image")
+      content
+    else
+      content ++
+        [
+          %{
+            type: "image",
+            source: %{
+              type: "base64",
+              media_type: image_data.mimetype,
+              data: image_data.data
+            }
+          }
+        ]
+    end
+  end
+
+  @doc false
+  # Adds PDF data to the multimodal content array if present and valid
+  defp add_pdf_to_content(content, nil), do: content
+
+  defp add_pdf_to_content(content, pdf_data) do
+    Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
+
+    # Check if the base64 data appears to be HTML content
+    if html_base64?(pdf_data.data) do
+      Logger.error("Detected HTML content in base64 data - not adding PDF")
+      content
+    else
+      content ++
+        [
+          %{
+            type: "document",
+            source: %{
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdf_data.data
+            }
+          }
+        ]
+    end
+  end
+
+  @doc false
+  # Detects if base64 data appears to be encoded HTML content
+  # This prevents sending HTML error pages to Claude's API
+  defp html_base64?(base64_data) do
+    # Check common HTML patterns in base64
+    html_patterns = [
+      # <!DOCTY
+      "PCFET0NUWV",
+      # <html
+      "PGh0bWw",
+      # <xml
+      "PHhtbC",
+      # <head
+      "PGhlYWQ",
+      # <body
+      "PGJvZHk"
+    ]
+
+    Enum.any?(html_patterns, fn pattern ->
+      String.starts_with?(base64_data, pattern)
+    end)
+  end
+
   defp pii_detection_system_prompt do
     """
     You are a PII detection system that identifies personally identifiable information in text.
@@ -104,6 +307,13 @@ defmodule PIIDetector.AI.ClaudeService do
     - Financial account details
     - Medical information
     - Credentials (usernames/passwords)
+
+    When analyzing images or PDFs:
+    - Extract any text visible in the image/document and analyze it for PII
+    - Look for ID cards, passports, driver's licenses, or other identity documents
+    - Identify credit cards, bank statements, or other financial documents
+    - Look for handwritten personal information
+    - Detect screenshots of forms or websites containing personal information
 
     When in doubt, be conservative and mark potential PII.
     """

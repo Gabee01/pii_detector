@@ -192,6 +192,7 @@ The Slack integration can be tested using the mock pattern:
 ```elixir
 # Configure mocks in test_helper.exs
 Mox.defmock(PIIDetector.Platform.Slack.APIMock, for: PIIDetector.Platform.Slack.APIBehaviour)
+Mox.defmock(PIIDetector.DetectorMock, for: PIIDetector.Detector)
 
 # In test setup
 setup :verify_on_exit!
@@ -199,16 +200,27 @@ setup :verify_on_exit!
 # Example test
 test "deletes message when PII is detected" do
   # Set up mocks for API and detector
-  expect(PIIDetector.Platform.Slack.APIMock, :delete_message, fn _, _, _ ->
-    {:ok, %{"ok" => true}}
+  expect(PIIDetector.Platform.Slack.APIMock, :delete_message, fn _channel, _timestamp, _opts ->
+    {:ok, :deleted}
   end)
   
-  expect(PIIDetector.Detector.PIIDetectorMock, :detect_pii, fn _content ->
-    {:pii_detected, true, ["SSN"]}
+  expect(PIIDetector.DetectorMock, :detect_pii, fn _content, _opts ->
+    {:pii_detected, true, ["email"]}
   end)
   
   # Test job processing
-  assert :ok = SlackMessageWorker.perform(job)
+  args = %{
+    "text" => "My email is test@example.com",
+    "channel" => "C12345",
+    "user" => "U12345",
+    "ts" => "1234567890.123456",
+    "token" => "xoxb-test-token",
+    "files" => [],
+    "attachments" => []
+  }
+
+  job = %Oban.Job{args: args}
+  assert {:ok, :notified} = SlackMessageWorker.perform(job)
 end
 ```
 

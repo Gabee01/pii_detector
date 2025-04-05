@@ -1,109 +1,138 @@
-# PII Detection Using Claude API
+# PII Detection Implementation
 
-## Overview
+The PII Detector application uses Anthropic's Claude API to identify Personal Identifiable Information (PII) in various types of content. This document outlines how the detection is implemented, tested, and can be configured.
 
-This document describes the implementation of PII (Personally Identifiable Information) detection in our application using Anthropic's Claude API via the Anthropix Elixir client.
+## Detection Approach
 
-## Detection Approach and Capabilities
+The PII detection service:
 
-Our PII detection service uses Claude, a powerful large language model, to identify various types of PII in text content. The system:
+1. Extracts text from various sources (text messages, PDFs, images)
+2. Sends the extracted text to Claude API for analysis
+3. Processes the AI response to determine if PII is present
+4. Returns a structured response including detected PII types
 
-1. Extracts text from messages, attachments, and files
-2. Sends the consolidated text to Claude via Anthropix
-3. Processes Claude's response to determine if PII is present
-4. Returns information about detected PII categories
+## Module Structure
 
-The service is designed to detect various PII categories including:
-- Email addresses
-- Phone numbers
-- Physical addresses
-- Names (when combined with other identifying info)
-- Social Security Numbers (SSN)
-- Credit card numbers
-- Dates of birth
-- Financial information
-- Medical information
-- Credentials (usernames/passwords)
-- Other PII
+The PII detection functionality is organized as follows:
 
-## Configuration Options
-
-The PII detection service can be configured through the application config or environment variables:
-
-### Application Configuration
-
-In `config/config.exs`:
-
-```elixir
-config :pii_detector, :claude,
-  dev_model: "claude-3-haiku-20240307",
-  prod_model: "claude-3-sonnet-20240229",
-  max_tokens: 1024,
-  temperature: 0
+```
+lib/pii_detector/
+├── detector/
+│   ├── behaviour.ex    # Defines the Detector behaviour
+│   └── detector.ex     # Implementation of the Detector
+└── ai/
+    ├── ai.ex           # AI service context 
+    ├── behaviour.ex    # AI service behaviour
+    ├── claude.ex       # Claude API implementation
+    └── multimodal.ex   # Multimodal content processing
 ```
 
-### Environment Variables
+The system follows a layered approach:
+1. The `Detector` module provides a unified interface for PII detection
+2. The `AI` context handles the interaction with AI services
+3. The `Claude` service implements the specific AI provider details
 
-- `CLAUDE_API_KEY`: Required API key for accessing Claude API
-- `CLAUDE_DEV_MODEL`: Optional model name for development environment
-- `CLAUDE_PROD_MODEL`: Optional model name for production environment
+## Configuration
 
-### Model Selection
+You can configure the PII detection service in `config/config.exs`:
 
-The service uses different Claude models based on the environment:
-- Development: Claude 3 Haiku (faster, lower cost)
-- Production: Claude 3 Sonnet (higher accuracy)
+```elixir
+config :pii_detector, PIIDetector.AI,
+  api_key: System.get_env("ANTHROPIC_API_KEY"),
+  model: "claude-3-opus-20240229",
+  max_tokens: 1000,
+  temperature: 0.0
 
-This approach balances cost and performance, using the more economical model for development and the more accurate model for production.
+config :pii_detector, PIIDetector.AI.Claude,
+  api_key: System.get_env("ANTHROPIC_API_KEY"),
+  base_url: "https://api.anthropic.com/v1"
+```
 
-## Claude API Usage
+For development/test environments, you may want to use a different model:
 
-### API Key Handling
+```elixir
+config :pii_detector, PIIDetector.AI,
+  model: "claude-3-haiku-20240307"
+```
 
-The Claude API key is obtained from the `CLAUDE_API_KEY` environment variable. This approach keeps sensitive credentials out of the codebase.
+You can also set these values via environment variables:
 
-### Prompt Engineering
+```
+ANTHROPIC_API_KEY=your-api-key
+CLAUDE_MODEL=claude-3-sonnet-20240229
+```
 
-The service uses carefully crafted prompts to guide Claude's analysis:
+## Usage
 
-1. **System prompt**: Sets the context and role for Claude, explaining what constitutes PII
-2. **User prompt**: Contains the text to analyze and instructions for the response format
+The detector can be used directly or through the AI service:
 
-Claude returns a structured JSON response containing:
-- `has_pii`: boolean indicating if PII was detected
-- `categories`: list of detected PII categories
-- `explanation`: brief explanation of what was found
+```elixir
+# Direct usage through root detector module
+{:pii_detected, has_pii, types} = PIIDetector.Detector.detect_pii(content)
 
-### Error Handling
+# For more control, use AI service directly
+{:ok, %{has_pii: true, pii_types: ["email", "phone_number"]}} = 
+  PIIDetector.AI.analyze_pii("My email is john@example.com and phone is 555-123-4567")
+```
 
-The service includes robust error handling for various scenarios:
-- API connection failures
-- Invalid or unexpected responses
-- JSON parsing errors
+For image and PDF files:
 
-In all error cases, the service defaults to returning `{:pii_detected, false, []}` to ensure the application continues functioning.
+```elixir
+{:ok, file_binary} = File.read("path/to/image.jpg")
+{:ok, results} = PIIDetector.AI.analyze_pii_multimodal("image.jpg", file_binary, "image/jpeg")
+```
 
-## Testing and Mocking
+## Error Handling
 
-The PII detection service is thoroughly tested using Mox to mock Claude API responses. Tests cover:
+The system implements robust error handling:
 
-- Detection of various PII types
-- Handling of empty content
-- API error handling
-- Parsing different response formats
+```elixir
+def detect_pii(content, opts \\ []) do
+  case PIIDetector.AI.analyze_pii(content) do
+    {:ok, %{has_pii: has_pii, pii_types: types}} ->
+      {:pii_detected, has_pii, types}
+      
+    {:error, reason} ->
+      Logger.error("PII detection failed: #{inspect(reason)}")
+      {:error, "PII detection failed"}
+  end
+end
+```
 
-This approach allows comprehensive testing without making actual API calls to Claude.
+## Testing
+
+The PII detection is tested using Mox to mock the AI service responses:
+
+```elixir
+# Define mocks in test_helper.exs
+Mox.defmock(PIIDetector.AI.AIServiceMock, for: PIIDetector.AI.AIService)
+Mox.defmock(PIIDetector.DetectorMock, for: PIIDetector.Detector)
+
+# In tests
+test "detects email in text" do
+  expect(PIIDetector.AI.AIServiceMock, :analyze_pii, fn text ->
+    assert text =~ "test@example.com"
+    {:ok, %{has_pii: true, pii_types: ["email"]}}
+  end)
+  
+  {:pii_detected, true, ["email"]} = PIIDetector.Detector.detect_pii("My email is test@example.com") 
+end
+```
 
 ## Performance Considerations
 
-- Claude API calls are relatively expensive in terms of time and cost
-- The service is designed to minimize API calls by batching text content
-- Response times may vary based on Claude API latency
-- For production use with high volume, additional optimization or caching strategies may be necessary
+To optimize performance:
+
+1. Use the `claude-3-haiku` model for faster response times in non-critical contexts
+2. Cache detection results for identical content
+3. Implement request batching for multiple small pieces of content
+4. Use appropriate timeouts for API requests
 
 ## Future Improvements
 
-- Implementing retries for transient API failures
-- Adding response caching to improve performance and reduce costs
-- Expanding file content extraction for more file types
-- Fine-tuning prompts based on real-world detection results 
+Plans for enhancing the PII detection:
+
+1. Implement retries for API failures
+2. Add support for more file types
+3. Develop a fallback local detection for basic PII patterns when the API is unavailable
+4. Improve text extraction from complex documents and images 
