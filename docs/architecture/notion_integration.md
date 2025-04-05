@@ -229,6 +229,77 @@ When PII is detected in Notion content, the system can:
 2. **Notify Users**: Send notifications to content creators via Slack
 3. **Log Incidents**: Generate detailed logs for security monitoring
 
+### PII Detection Flow
+
+The PII detection process for Notion content follows these steps:
+
+1. **Event Trigger**: A Notion webhook event is received (page.created, page.updated, etc.)
+2. **Page Metadata Retrieval**: The system fetches the page metadata via Notion API
+3. **Fast Path Title Check**: 
+   - Performs a quick regex-based scan for obvious PII patterns in the page title
+   - Checks for emails, SSNs, phone numbers, and credit card numbers
+   - If PII is found in the title, archives the page immediately (skips content fetching)
+4. **Full Content Analysis** (if no PII found in title):
+   - Fetches all blocks associated with the page
+   - Extracts and processes any child pages recursively
+   - Converts Notion blocks to plain text
+   - Sends content to PII detection service with proper formatting
+
+```elixir
+# Structure for PII detection
+detector_input = %{
+  text: extracted_content,
+  attachments: [],  # Notion content doesn't include attachments
+  files: []         # File handling not yet implemented for Notion
+}
+```
+
+5. **Result Processing**:
+   - Analyzes detection results to determine appropriate actions
+   - Handles various edge cases and error conditions
+
+### Special Cases
+
+The system handles several special cases in Notion content:
+
+#### Workspace-Level Pages
+
+Pages at the workspace level are treated differently:
+- They cannot be archived via the Notion API
+- When PII is detected, the system logs the finding but does not attempt to archive
+- Identification is based on the `parent.type` property being set to "workspace"
+
+```elixir
+# Identifying workspace pages
+defp is_workspace_level_page?(page) do
+  case get_in(page, ["parent", "type"]) do
+    "workspace" -> true
+    _ -> false
+  end
+end
+```
+
+#### Child Pages
+
+Child pages are processed recursively:
+- When a block of type "child_page" is detected, its content is processed before the parent
+- This ensures comprehensive scanning of nested content
+- Each child page goes through the same PII detection process as the parent
+
+#### Title-Only Pages
+
+Some Notion pages contain minimal content other than the title:
+- The fast path title check provides efficiency for these cases
+- Pages with PII in titles are archived without fetching additional content
+
+### Error Handling
+
+The PII detection process includes robust error handling:
+- API errors (authentication, rate limits, etc.) are caught and logged
+- Processing continues even if some components fail
+- Specific error types trigger appropriate recovery strategies
+- All errors are logged with context for troubleshooting
+
 ## Authentication
 
 The Notion API client supports authentication through:

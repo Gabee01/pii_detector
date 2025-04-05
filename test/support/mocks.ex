@@ -24,4 +24,7 @@ defmodule PIIDetector.TestMocks do
 
   # Mock for the Notion API
   defmock(PIIDetector.Platform.Notion.APIMock, for: PIIDetector.Platform.Notion.APIBehaviour)
+
+  # Mock for the Notion module
+  defmock(PIIDetector.Platform.NotionMock, for: PIIDetector.Platform.Notion.Behaviour)
 end

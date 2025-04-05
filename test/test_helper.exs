@@ -17,6 +17,7 @@ Application.put_env(:pii_detector, :slack_module, PIIDetector.Platform.SlackMock
 
 # Notion API mocks
 Application.put_env(:pii_detector, :notion_api_module, PIIDetector.Platform.Notion.APIMock)
+Application.put_env(:pii_detector, :notion_module, PIIDetector.Platform.NotionMock)
 
 # FileDownloader mock
 Application.put_env(:pii_detector, :file_downloader, PIIDetector.FileDownloaderMock)
