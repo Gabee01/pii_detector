@@ -138,7 +138,7 @@ defmodule PIIDetector.DetectorTest do
 
       # Set up expectations for FileService
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "pii_test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -191,7 +191,7 @@ defmodule PIIDetector.DetectorTest do
 
       # Set up expectations for FileService
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "pii_financial.pdf"
         assert file["mimetype"] == "application/pdf"
 
@@ -240,7 +240,7 @@ defmodule PIIDetector.DetectorTest do
     test "handles non-PII files correctly" do
       # Set up expectations for FileService
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "normal_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -320,7 +320,7 @@ defmodule PIIDetector.DetectorTest do
 
       # Set up expectations for FileService
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "pii_test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -371,7 +371,7 @@ defmodule PIIDetector.DetectorTest do
     test "detects PII in PDF files", %{} do
       # Setup mocks
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file[:url] == "https://example.com/document.pdf"
         assert file[:name] == "document.pdf"
 

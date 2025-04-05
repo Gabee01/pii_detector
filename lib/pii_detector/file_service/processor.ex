@@ -1,8 +1,8 @@
 defmodule PIIDetector.FileService.Processor do
   @moduledoc """
-  Generic service for downloading and processing files for AI analysis.
-  This module handles the common operations of downloading files,
-  converting them to base64, and preparing metadata.
+  Generic service for downloading and preparing files for AI analysis.
+  This module handles the core responsibility of downloading files,
+  converting them to base64, and preparing basic metadata.
   """
 
   @behaviour PIIDetector.FileService.Behaviour
@@ -33,37 +33,9 @@ defmodule PIIDetector.FileService.Processor do
   end
 
   @impl true
-  def process_image(file, opts \\ []) do
-    process_generic_file(file, opts)
-  end
+  def prepare_file(file, opts \\ [])
 
-  @impl true
-  def process_pdf(file, opts \\ []) do
-    process_generic_file(file, opts)
-  end
-
-  @doc """
-  Process any document file format by downloading and encoding to base64.
-  """
-  @impl true
-  def process_document(file, opts \\ []) do
-    process_generic_file(file, opts)
-  end
-
-  @doc """
-  Process any text file format by downloading and encoding to base64.
-  """
-  @impl true
-  def process_text(file, opts \\ []) do
-    process_generic_file(file, opts)
-  end
-
-  @doc """
-  Generic file processor that works with any file type.
-  Downloads the file and encodes it to base64.
-  """
-  @impl true
-  def process_generic_file(file, opts \\ []) do
+  def prepare_file(%{"url" => _url, "headers" => _headers} = file, opts) do
     case download_file(file, opts) do
       {:ok, file_data} ->
         base64_data = Base.encode64(file_data)
@@ -81,17 +53,53 @@ defmodule PIIDetector.FileService.Processor do
     end
   end
 
-  @impl true
-  def process_file(file, opts \\ [])
-
-  def process_file(%{"url" => _url, "headers" => _headers} = file, opts) do
-    # Process any file regardless of MIME type
-    process_generic_file(file, opts)
-  end
-
-  def process_file(file, _opts) do
+  def prepare_file(file, _opts) do
     Logger.error("Invalid file object: #{inspect(file)}")
     {:error, "Invalid file object: #{inspect(file)}"}
+  end
+
+  # Deprecated functions - redirecting to prepare_file for backward compatibility
+
+  @impl true
+  @deprecated "Use prepare_file/2 instead"
+  def process_image(file, opts \\ []) do
+    Logger.warning("process_image/2 is deprecated, use prepare_file/2 instead")
+    prepare_file(file, opts)
+  end
+
+  @impl true
+  @deprecated "Use prepare_file/2 instead"
+  def process_pdf(file, opts \\ []) do
+    Logger.warning("process_pdf/2 is deprecated, use prepare_file/2 instead")
+    prepare_file(file, opts)
+  end
+
+  @impl true
+  @deprecated "Use prepare_file/2 instead"
+  def process_document(file, opts \\ []) do
+    Logger.warning("process_document/2 is deprecated, use prepare_file/2 instead")
+    prepare_file(file, opts)
+  end
+
+  @impl true
+  @deprecated "Use prepare_file/2 instead"
+  def process_text(file, opts \\ []) do
+    Logger.warning("process_text/2 is deprecated, use prepare_file/2 instead")
+    prepare_file(file, opts)
+  end
+
+  @impl true
+  @deprecated "Use prepare_file/2 instead"
+  def process_generic_file(file, opts \\ []) do
+    Logger.warning("process_generic_file/2 is deprecated, use prepare_file/2 instead")
+    prepare_file(file, opts)
+  end
+
+  @impl true
+  @deprecated "Use prepare_file/2 instead"
+  def process_file(file, opts \\ []) do
+    Logger.warning("process_file/2 is deprecated, use prepare_file/2 instead")
+    prepare_file(file, opts)
   end
 
   # Private helpers for downloading and validating content

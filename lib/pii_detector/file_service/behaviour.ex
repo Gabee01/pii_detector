@@ -1,6 +1,8 @@
 defmodule PIIDetector.FileService.Behaviour do
   @moduledoc """
-  Behaviour definition for file downloading and processing services.
+  Behaviour definition for file downloading and basic processing services.
+  This module focuses on downloading files and preparing them for content analysis,
+  following the Single Responsibility Principle.
   """
 
   @doc """
@@ -9,38 +11,41 @@ defmodule PIIDetector.FileService.Behaviour do
   @callback download_file(file :: map(), opts :: keyword()) :: {:ok, binary()} | {:error, any()}
 
   @doc """
-  Process an image file for AI analysis.
-  Typically converts to base64 and returns metadata.
+  Prepares a file for analysis by downloading it and encoding it to base64.
+  Returns the file data along with metadata (mimetype, name).
+  """
+  @callback prepare_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
+
+  # Deprecated callbacks - kept for backward compatibility
+  # These should be removed in future versions
+
+  @doc """
+  DEPRECATED: Use prepare_file/2 instead.
   """
   @callback process_image(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
-  Process a PDF file for AI analysis.
-  Typically converts to base64 and returns metadata.
+  DEPRECATED: Use prepare_file/2 instead.
   """
   @callback process_pdf(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
-  Process a document file (like Word, etc.) for AI analysis.
-  Typically converts to base64 and returns metadata.
+  DEPRECATED: Use prepare_file/2 instead.
   """
   @callback process_document(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
-  Process a text file for AI analysis.
-  Typically converts to base64 and returns metadata.
+  DEPRECATED: Use prepare_file/2 instead.
   """
   @callback process_text(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
-  Process any file regardless of type.
-  Converts to base64 and returns metadata.
+  DEPRECATED: Use prepare_file/2 instead.
   """
   @callback process_generic_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
-  Process a file based on its MIME type.
-  Automatically determines file type and delegates to the appropriate processor.
+  DEPRECATED: Use prepare_file/2 instead.
   """
   @callback process_file(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 end

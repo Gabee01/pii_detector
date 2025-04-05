@@ -39,9 +39,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         name: "test-image.png"
       }
 
-      # Set up the mock to use process_generic_file instead
+      # Set up the mock to use prepare_file
       FileServiceMock
-      |> expect(:process_generic_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["url"] == "https://slack-files.example.com/test-file.png"
         assert file["mimetype"] == "image/png"
         assert file["name"] == "test-image.png"
@@ -70,9 +70,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         name: "test-doc.pdf"
       }
 
-      # Set up the mock to use process_generic_file instead
+      # Set up the mock to use prepare_file
       FileServiceMock
-      |> expect(:process_generic_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["url"] == "https://slack-files.example.com/test-file.pdf"
         assert file["mimetype"] == "application/pdf"
         assert file["name"] == "test-doc.pdf"
@@ -97,9 +97,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         name: "test.txt"
       }
 
-      # Set up the mock to use process_generic_file
+      # Set up the mock to use prepare_file
       FileServiceMock
-      |> expect(:process_generic_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["url"] == "https://slack-files.example.com/test-file.txt"
         assert file["mimetype"] == "text/plain"
         assert file["name"] == "test.txt"
@@ -123,9 +123,9 @@ defmodule PIIDetector.Platform.Slack.FileAdapterTest do
         "name" => "test-image.png"
       }
 
-      # Set up the mock to verify custom token with process_generic_file
+      # Set up the mock to verify custom token with prepare_file
       FileServiceMock
-      |> expect(:process_generic_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         [{"Authorization", auth_value}] = file["headers"]
         assert auth_value == "Bearer custom-test-token"
 

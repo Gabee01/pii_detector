@@ -98,7 +98,7 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     test "processes image files correctly" do
       # Set up expectations for FileService
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "test_image.jpg"
         assert file["mimetype"] == "image/jpeg"
 
@@ -126,7 +126,7 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     test "processes PDF files correctly" do
       # Set up expectations for FileService
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "test_doc.pdf"
         assert file["mimetype"] == "application/pdf"
 
@@ -154,7 +154,7 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     test "processes both image and PDF files" do
       # Set up expectations for FileService using stub
       FileServiceMock
-      |> stub(:process_file, fn file, _opts ->
+      |> stub(:prepare_file, fn file, _opts ->
         case file["mimetype"] do
           "image/jpeg" ->
             {:ok, %{data: "base64_image_data", mimetype: "image/jpeg", name: file["name"]}}
@@ -163,7 +163,7 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
             {:ok, %{data: "base64_pdf_data", mimetype: "application/pdf", name: file["name"]}}
 
           _ ->
-            {:error, "Unsupported file type"}
+            {:ok, %{data: "base64_generic_data", mimetype: file["mimetype"], name: file["name"]}}
         end
       end)
 
@@ -193,7 +193,7 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
     test "handles processing errors gracefully" do
       # Set up expectations for FileService to simulate errors
       FileServiceMock
-      |> expect(:process_file, fn _file, _opts ->
+      |> expect(:prepare_file, fn _file, _opts ->
         {:error, "Failed to download file"}
       end)
 
@@ -212,10 +212,10 @@ defmodule PIIDetector.Detector.ContentProcessorTest do
       assert nil_data == nil
     end
 
-    test "ignores unsupported file types" do
+    test "processes any file type" do
       # Now we expect all file types to be processed
       FileServiceMock
-      |> expect(:process_file, fn file, _opts ->
+      |> expect(:prepare_file, fn file, _opts ->
         assert file["name"] == "data.txt"
         assert file["mimetype"] == "text/plain"
 

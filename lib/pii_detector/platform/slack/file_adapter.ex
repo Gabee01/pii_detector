@@ -34,7 +34,7 @@ defmodule PIIDetector.Platform.Slack.FileAdapter do
       ]
     }
 
-    process_by_type(file_service, adapted_file, opts)
+    file_service.prepare_file(adapted_file, opts)
   end
 
   def process_file(file_object, _opts) do
@@ -43,11 +43,6 @@ defmodule PIIDetector.Platform.Slack.FileAdapter do
   end
 
   # Private functions
-
-  defp process_by_type(file_service, file_data, opts) do
-    # Use generic file processor for all file types instead of checking MIME types
-    file_service.process_generic_file(file_data, opts)
-  end
 
   defp get_file_service do
     Application.get_env(:pii_detector, :file_service, PIIDetector.FileService.Processor)

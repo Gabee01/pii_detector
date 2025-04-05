@@ -100,8 +100,119 @@ defmodule PIIDetector.FileService.ProcessorTest do
     end
   end
 
-  describe "process_image/2" do
+  describe "prepare_file/2" do
+    test "successfully prepares an image file" do
+      file = %{
+        "url" => "https://example.com/success.jpg",
+        "mimetype" => "image/jpeg",
+        "name" => "test_image.jpg",
+        "headers" => [{"Authorization", "Bearer test-token"}]
+      }
+
+      mock_req = fn _url, _opts ->
+        {:ok, %{status: 200, body: "fake_image_data"}}
+      end
+
+      assert {:ok, processed} = Processor.prepare_file(file, req_module: mock_req)
+      assert processed.mimetype == "image/jpeg"
+      assert processed.name == "test_image.jpg"
+      assert processed.data == Base.encode64("fake_image_data")
+    end
+
+    test "successfully prepares a PDF file" do
+      file = %{
+        "url" => "https://example.com/document.pdf",
+        "mimetype" => "application/pdf",
+        "name" => "test_doc.pdf",
+        "headers" => [{"Authorization", "Bearer test-token"}]
+      }
+
+      mock_req = fn _url, _opts ->
+        {:ok, %{status: 200, body: "fake_pdf_data"}}
+      end
+
+      assert {:ok, processed} = Processor.prepare_file(file, req_module: mock_req)
+      assert processed.mimetype == "application/pdf"
+      assert processed.name == "test_doc.pdf"
+      assert processed.data == Base.encode64("fake_pdf_data")
+    end
+
+    test "successfully prepares any file type" do
+      file = %{
+        "url" => "https://example.com/document.txt",
+        "mimetype" => "text/plain",
+        "name" => "test.txt",
+        "headers" => [{"Authorization", "Bearer test-token"}]
+      }
+
+      mock_req = fn _url, _opts ->
+        {:ok, %{status: 200, body: "This is a text file content"}}
+      end
+
+      assert {:ok, processed} = Processor.prepare_file(file, req_module: mock_req)
+      assert processed.mimetype == "text/plain"
+      assert processed.name == "test.txt"
+      assert processed.data == Base.encode64("This is a text file content")
+    end
+
+    test "handles unnamed file" do
+      file = %{
+        "url" => "https://example.com/document.pdf",
+        "mimetype" => "application/pdf",
+        "headers" => [{"Authorization", "Bearer test-token"}]
+      }
+
+      mock_req = fn _url, _opts ->
+        {:ok, %{status: 200, body: "fake_pdf_data"}}
+      end
+
+      assert {:ok, processed} = Processor.prepare_file(file, req_module: mock_req)
+      assert processed.name == "unnamed"
+    end
+
+    test "handles unknown mimetype" do
+      file = %{
+        "url" => "https://example.com/file.bin",
+        "name" => "unknown.bin",
+        "headers" => [{"Authorization", "Bearer test-token"}]
+      }
+
+      mock_req = fn _url, _opts ->
+        {:ok, %{status: 200, body: "binary_data"}}
+      end
+
+      assert {:ok, processed} = Processor.prepare_file(file, req_module: mock_req)
+      assert processed.mimetype == "application/octet-stream"
+      assert processed.name == "unknown.bin"
+    end
+
+    test "handles download error" do
+      file = %{
+        "url" => "https://example.com/error.jpg",
+        "mimetype" => "image/jpeg",
+        "name" => "test_image.jpg",
+        "headers" => [{"Authorization", "Bearer test-token"}]
+      }
+
+      mock_req = fn _url, _opts ->
+        {:error, "Download failed"}
+      end
+
+      assert {:error, "Download failed"} =
+               Processor.prepare_file(file, req_module: mock_req)
+    end
+
+    test "handles invalid file object" do
+      file = %{"name" => "invalid.jpg"}
+
+      assert {:error, _} = Processor.prepare_file(file)
+    end
+  end
+
+  # Keep the legacy tests for backward compatibility, but mark them as deprecated
+  describe "process_image/2 (deprecated)" do
     test "successfully processes an image file" do
+      # This test documents that the deprecated function still works
       file = %{
         "url" => "https://example.com/success.jpg",
         "mimetype" => "image/jpeg",
@@ -118,41 +229,11 @@ defmodule PIIDetector.FileService.ProcessorTest do
       assert processed.name == "test_image.jpg"
       assert processed.data == Base.encode64("fake_image_data")
     end
-
-    test "handles unnamed image file" do
-      file = %{
-        "url" => "https://example.com/success.jpg",
-        "mimetype" => "image/jpeg",
-        "headers" => [{"Authorization", "Bearer test-token"}]
-      }
-
-      mock_req = fn _url, _opts ->
-        {:ok, %{status: 200, body: "fake_image_data"}}
-      end
-
-      assert {:ok, processed} = Processor.process_image(file, req_module: mock_req)
-      assert processed.name == "unnamed"
-    end
-
-    test "handles download error in process_image" do
-      file = %{
-        "url" => "https://example.com/error.jpg",
-        "mimetype" => "image/jpeg",
-        "name" => "test_image.jpg",
-        "headers" => [{"Authorization", "Bearer test-token"}]
-      }
-
-      mock_req = fn _url, _opts ->
-        {:error, "Download failed"}
-      end
-
-      assert {:error, "Download failed"} =
-               Processor.process_image(file, req_module: mock_req)
-    end
   end
 
-  describe "process_pdf/2" do
+  describe "process_pdf/2 (deprecated)" do
     test "successfully processes a PDF file" do
+      # This test documents that the deprecated function still works
       file = %{
         "url" => "https://example.com/document.pdf",
         "mimetype" => "application/pdf",
@@ -168,37 +249,6 @@ defmodule PIIDetector.FileService.ProcessorTest do
       assert processed.mimetype == "application/pdf"
       assert processed.name == "test_doc.pdf"
       assert processed.data == Base.encode64("fake_pdf_data")
-    end
-
-    test "handles unnamed PDF file" do
-      file = %{
-        "url" => "https://example.com/document.pdf",
-        "mimetype" => "application/pdf",
-        "headers" => [{"Authorization", "Bearer test-token"}]
-      }
-
-      mock_req = fn _url, _opts ->
-        {:ok, %{status: 200, body: "fake_pdf_data"}}
-      end
-
-      assert {:ok, processed} = Processor.process_pdf(file, req_module: mock_req)
-      assert processed.name == "unnamed"
-    end
-
-    test "handles download error in process_pdf" do
-      file = %{
-        "url" => "https://example.com/error.pdf",
-        "mimetype" => "application/pdf",
-        "name" => "test_doc.pdf",
-        "headers" => [{"Authorization", "Bearer test-token"}]
-      }
-
-      mock_req = fn _url, _opts ->
-        {:error, "Download failed"}
-      end
-
-      assert {:error, "Download failed"} =
-               Processor.process_pdf(file, req_module: mock_req)
     end
   end
 end
