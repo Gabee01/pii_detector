@@ -73,7 +73,7 @@ config :pii_detector, :claude,
 
 # Configure Notion API
 config :pii_detector, PIIDetector.Platform.Notion,
-  api_token: System.get_env("NOTION_API_TOKEN") || System.get_env("NOTION_API_KEY"),
+  api_token: System.get_env("NOTION_API_KEY"),
   notion_version: "2022-06-28",
   base_url: "https://api.notion.com/v1"
 

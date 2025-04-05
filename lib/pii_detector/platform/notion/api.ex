@@ -188,15 +188,13 @@ defmodule PIIDetector.Platform.Notion.API do
     config = Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
 
     # Try to get token from both possible environment variables if it's missing in config
-    api_token = config[:api_token] ||
-                System.get_env("NOTION_API_TOKEN") ||
-                System.get_env("NOTION_API_KEY")
+    api_token = config[:api_token] || System.get_env("NOTION_API_KEY")
 
-    if !api_token do
-      Logger.error("Notion API token not found! Check environment variables NOTION_API_TOKEN or NOTION_API_KEY")
-    else
+    if api_token do
       token_preview = String.slice(api_token, 0, 4) <> "..." <> String.slice(api_token, -4, 4)
       Logger.debug("Using Notion API token: #{token_preview}")
+    else
+      Logger.error("Notion API token not found! Check environment variable NOTION_API_KEY")
     end
 
     Map.put(config, :api_token, api_token)
