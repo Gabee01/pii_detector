@@ -52,6 +52,20 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
     test "returns error with invalid page data" do
       assert {:ok, ""} = Notion.extract_content_from_page(%{"invalid" => "data"}, [])
     end
+
+    test "handles error during extraction" do
+      # Mock a scenario where an error occurs
+      page = %{
+        "properties" => %{
+          # This will cause an error when attempting to access keys
+          "title" => nil
+        }
+      }
+
+      # Since we're catching all errors in the implementation and returning :error
+      # we don't expect an exception to bubble up
+      assert {:ok, _} = Notion.extract_content_from_page(page, [])
+    end
   end
 
   describe "extract_content_from_blocks/1" do
@@ -175,6 +189,88 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
       assert content =~ "[x] Task 2"
     end
 
+    test "extracts text from toggle, code, quote, and callout blocks" do
+      blocks = [
+        %{
+          "type" => "toggle",
+          "toggle" => %{
+            "rich_text" => [
+              %{"plain_text" => "Toggle content"}
+            ]
+          },
+          "has_children" => false
+        },
+        %{
+          "type" => "code",
+          "code" => %{
+            "language" => "elixir",
+            "rich_text" => [
+              %{"plain_text" => "IO.puts(\"Hello world\")"}
+            ]
+          },
+          "has_children" => false
+        },
+        %{
+          "type" => "quote",
+          "quote" => %{
+            "rich_text" => [
+              %{"plain_text" => "This is a quote"}
+            ]
+          },
+          "has_children" => false
+        },
+        %{
+          "type" => "callout",
+          "callout" => %{
+            "rich_text" => [
+              %{"plain_text" => "This is a callout"}
+            ]
+          },
+          "has_children" => false
+        }
+      ]
+
+      assert {:ok, content} = Notion.extract_content_from_blocks(blocks)
+      assert content =~ "Toggle content"
+      assert content =~ "```elixir\nIO.puts(\"Hello world\")\n```"
+      assert content =~ "> This is a quote"
+      assert content =~ "This is a callout"
+    end
+
+    test "handles blocks with children" do
+      blocks = [
+        %{
+          "type" => "paragraph",
+          "paragraph" => %{
+            "rich_text" => [
+              %{"plain_text" => "Parent paragraph"}
+            ]
+          },
+          "has_children" => true
+        }
+      ]
+
+      assert {:ok, content} = Notion.extract_content_from_blocks(blocks)
+      assert content =~ "Parent paragraph"
+    end
+
+    test "handles invalid block types" do
+      blocks = [
+        %{
+          "type" => "unknown_type",
+          "unknown_type" => %{
+            "rich_text" => [
+              %{"plain_text" => "Unknown content"}
+            ]
+          },
+          "has_children" => false
+        }
+      ]
+
+      assert {:ok, content} = Notion.extract_content_from_blocks(blocks)
+      assert content == ""
+    end
+
     test "returns empty string for empty blocks" do
       assert {:ok, ""} = Notion.extract_content_from_blocks([])
     end
@@ -238,6 +334,66 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
       assert content =~ "Notes: Some notes for entry 2"
     end
 
+    test "extracts content from various property types" do
+      database_entries = [
+        %{
+          "properties" => %{
+            "TextProperty" => %{
+              "type" => "text",
+              "text" => %{"content" => "Text content"}
+            },
+            "NumberProperty" => %{
+              "type" => "number",
+              "number" => 42
+            },
+            "SelectProperty" => %{
+              "type" => "select",
+              "select" => %{"name" => "Option 1"}
+            },
+            "MultiSelectProperty" => %{
+              "type" => "multi_select",
+              "multi_select" => [
+                %{"name" => "Tag 1"},
+                %{"name" => "Tag 2"}
+              ]
+            },
+            "DateProperty" => %{
+              "type" => "date",
+              "date" => %{"start" => "2023-01-01"}
+            },
+            "CheckboxProperty" => %{
+              "type" => "checkbox",
+              "checkbox" => true
+            }
+          }
+        }
+      ]
+
+      assert {:ok, content} = Notion.extract_content_from_database(database_entries)
+      assert content =~ "TextProperty: Text content"
+      assert content =~ "NumberProperty: 42"
+      assert content =~ "SelectProperty: Option 1"
+      assert content =~ "MultiSelectProperty: Tag 1, Tag 2"
+      assert content =~ "DateProperty: 2023-01-01"
+      assert content =~ "CheckboxProperty: Yes"
+    end
+
+    test "handles invalid property types" do
+      database_entries = [
+        %{
+          "properties" => %{
+            "InvalidProperty" => %{
+              "type" => "unknown_type",
+              "unknown_type" => "Some value"
+            }
+          }
+        }
+      ]
+
+      assert {:ok, content} = Notion.extract_content_from_database(database_entries)
+      assert content == ""
+    end
+
     test "returns empty string for empty database" do
       assert {:ok, ""} = Notion.extract_content_from_database([])
     end
@@ -293,6 +449,21 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
 
       assert {:error, "Notification failed"} =
                Notion.notify_content_creator(user_id, content, detected_pii)
+    end
+
+    test "formats notification message correctly" do
+      user_id = "test_user_id"
+      content = "Test content with PII"
+      detected_pii = %{"email" => ["test@example.com"], "phone" => ["555-1234"]}
+
+      # Mock Slack platform
+      expect(SlackMock, :notify_user, fn _slack_user_id, message, _opts ->
+        assert message =~ "*PII Detected in Your Notion Content*"
+        assert message =~ "email, phone"
+        {:ok, %{}}
+      end)
+
+      assert {:ok, _} = Notion.notify_content_creator(user_id, content, detected_pii)
     end
   end
 end
