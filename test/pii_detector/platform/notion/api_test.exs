@@ -44,7 +44,7 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:error, "API error: 404"} = API.get_page(page_id, token, plug: {Req.Test, stub_name})
+      assert {:error, "Page not found or integration lacks access - verify integration is added to page"} = API.get_page(page_id, token, plug: {Req.Test, stub_name})
     end
 
     test "handles connection errors" do
@@ -59,9 +59,12 @@ defmodule PIIDetector.Platform.Notion.APITest do
         Req.Test.transport_error(conn, :timeout)
       end)
 
-      # Call the API with the test stub in opts
+      # Call the API with the test stub in opts and override retry options
       assert {:error, %Req.TransportError{reason: :timeout}} =
-        API.get_page(page_id, token, plug: {Req.Test, stub_name})
+        API.get_page(page_id, token, [
+          plug: {Req.Test, stub_name},
+          retry: false # Disable retries for this test to avoid timeouts
+        ])
     end
   end
 
@@ -99,6 +102,26 @@ defmodule PIIDetector.Platform.Notion.APITest do
 
       # Call the API with the test stub in opts
       assert {:error, "API error: 403"} = API.get_blocks(page_id, token, plug: {Req.Test, stub_name})
+    end
+
+    test "handles connection errors" do
+      page_id = "test_page_id"
+      token = "test_token"
+
+      # Create a stub name for this test
+      stub_name = :"NotionAPI#{:erlang.unique_integer([:positive])}"
+
+      # Set up a stub
+      Req.Test.stub(stub_name, fn conn ->
+        Req.Test.transport_error(conn, :timeout)
+      end)
+
+      # Call the API with retry disabled to avoid timeouts
+      assert {:error, %Req.TransportError{reason: :timeout}} =
+        API.get_blocks(page_id, token, [
+          plug: {Req.Test, stub_name},
+          retry: false
+        ])
     end
   end
 
@@ -138,6 +161,26 @@ defmodule PIIDetector.Platform.Notion.APITest do
       # Call the API with the test stub in opts
       assert {:error, "API error: 400"} = API.get_database_entries(database_id, token, plug: {Req.Test, stub_name})
     end
+
+    test "handles connection errors" do
+      database_id = "test_db_id"
+      token = "test_token"
+
+      # Create a stub name for this test
+      stub_name = :"NotionAPI#{:erlang.unique_integer([:positive])}"
+
+      # Set up a stub
+      Req.Test.stub(stub_name, fn conn ->
+        Req.Test.transport_error(conn, :timeout)
+      end)
+
+      # Call the API with retry disabled to avoid timeouts
+      assert {:error, %Req.TransportError{reason: :timeout}} =
+        API.get_database_entries(database_id, token, [
+          plug: {Req.Test, stub_name},
+          retry: false
+        ])
+    end
   end
 
   describe "archive_page/3" do
@@ -176,7 +219,27 @@ defmodule PIIDetector.Platform.Notion.APITest do
       end)
 
       # Call the API with the test stub in opts
-      assert {:error, "API error: 401"} = API.archive_page(page_id, token, plug: {Req.Test, stub_name})
+      assert {:error, "Authentication failed - invalid API token"} = API.archive_page(page_id, token, plug: {Req.Test, stub_name})
+    end
+
+    test "handles connection errors" do
+      page_id = "test_page_id"
+      token = "test_token"
+
+      # Create a stub name for this test
+      stub_name = :"NotionAPI#{:erlang.unique_integer([:positive])}"
+
+      # Set up a stub
+      Req.Test.stub(stub_name, fn conn ->
+        Req.Test.transport_error(conn, :timeout)
+      end)
+
+      # Call the API with retry disabled to avoid timeouts
+      assert {:error, %Req.TransportError{reason: :timeout}} =
+        API.archive_page(page_id, token, [
+          plug: {Req.Test, stub_name},
+          retry: false
+        ])
     end
   end
 end

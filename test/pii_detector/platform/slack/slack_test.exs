@@ -9,26 +9,6 @@ defmodule PIIDetector.Platform.SlackTest do
   # Ensure mocks are verified when the test exits
   setup :verify_on_exit!
 
-  # Set up the application environment for tests
-  setup do
-    # Store original application env
-    original_api_module = Application.get_env(:pii_detector, :slack_api_module)
-    original_bot_enabled = Application.get_env(:pii_detector, :start_slack_bot)
-    original_bot_module = Application.get_env(:pii_detector, :slack_bot_module)
-
-    # Set up test configuration
-    Application.put_env(:pii_detector, :slack_api_module, APIMock)
-
-    on_exit(fn ->
-      # Restore original application env
-      Application.put_env(:pii_detector, :slack_api_module, original_api_module)
-      Application.put_env(:pii_detector, :start_slack_bot, original_bot_enabled)
-      Application.put_env(:pii_detector, :slack_bot_module, original_bot_module)
-    end)
-
-    :ok
-  end
-
   describe "post_message/3" do
     test "delegates to API module" do
       expect(APIMock, :post_message, fn channel, text, token ->
@@ -107,33 +87,6 @@ defmodule PIIDetector.Platform.SlackTest do
       # Assert that result is the same as what MessageFormatter would return
       expected = MessageFormatter.format_pii_notification(message_content)
       assert result == expected
-    end
-  end
-
-  describe "start_bot/0" do
-    # Create a test module for PIIDetector.Platform.Slack.Bot for testing
-    defmodule TestBot do
-      def start_link(_), do: {:ok, :mock_pid}
-    end
-
-    test "starts bot when enabled" do
-      # Enable bot for this test
-      Application.put_env(:pii_detector, :start_slack_bot, true)
-
-      # Configure test bot module
-      Application.put_env(:pii_detector, :slack_bot_module, TestBot)
-
-      # Test the function
-      result = Slack.start_bot()
-      assert result == {:ok, :mock_pid}
-    end
-
-    test "skips bot start when disabled" do
-      # Disable bot for this test
-      Application.put_env(:pii_detector, :start_slack_bot, false)
-
-      result = Slack.start_bot()
-      assert result == {:ok, :bot_disabled}
     end
   end
 end

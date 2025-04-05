@@ -10,10 +10,7 @@ defmodule PIIDetector.Platform.Notion.API do
   def get_page(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
 
-    if !token do
-      Logger.error("No Notion API token available - cannot fetch page: #{page_id}")
-      {:error, "Missing API token"}
-    else
+    if token do
       url = "#{config()[:base_url]}/pages/#{page_id}"
 
       headers = [
@@ -47,6 +44,9 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
+    else
+      Logger.error("No Notion API token available - cannot fetch page: #{page_id}")
+      {:error, "Missing API token"}
     end
   end
 
@@ -54,10 +54,7 @@ defmodule PIIDetector.Platform.Notion.API do
   def get_blocks(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
 
-    if !token do
-      Logger.error("No Notion API token available - cannot fetch blocks: #{page_id}")
-      {:error, "Missing API token"}
-    else
+    if token do
       url = "#{config()[:base_url]}/blocks/#{page_id}/children"
 
       headers = [
@@ -91,6 +88,9 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
+    else
+      Logger.error("No Notion API token available - cannot fetch blocks: #{page_id}")
+      {:error, "Missing API token"}
     end
   end
 
@@ -98,10 +98,7 @@ defmodule PIIDetector.Platform.Notion.API do
   def get_database_entries(database_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
 
-    if !token do
-      Logger.error("No Notion API token available - cannot fetch database entries: #{database_id}")
-      {:error, "Missing API token"}
-    else
+    if token do
       url = "#{config()[:base_url]}/databases/#{database_id}/query"
 
       headers = [
@@ -131,6 +128,9 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
+    else
+      Logger.error("No Notion API token available - cannot fetch database entries: #{database_id}")
+      {:error, "Missing API token"}
     end
   end
 
@@ -138,10 +138,7 @@ defmodule PIIDetector.Platform.Notion.API do
   def archive_page(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
 
-    if !token do
-      Logger.error("No Notion API token available - cannot archive page: #{page_id}")
-      {:error, "Missing API token"}
-    else
+    if token do
       url = "#{config()[:base_url]}/pages/#{page_id}"
 
       headers = [
@@ -175,6 +172,9 @@ defmodule PIIDetector.Platform.Notion.API do
           Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
           {:error, reason}
       end
+    else
+      Logger.error("No Notion API token available - cannot archive page: #{page_id}")
+      {:error, "Missing API token"}
     end
   end
 
@@ -185,19 +185,24 @@ defmodule PIIDetector.Platform.Notion.API do
   end
 
   defp config do
-    config = Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
+    config = Application.get_env(:pii_detector, PIIDetector.Platform.Notion, %{})
+
+    # Convert to map if it's a keyword list
+    config = if is_list(config), do: Map.new(config), else: config
 
     # Try to get token from both possible environment variables if it's missing in config
-    api_token = config[:api_token] || System.get_env("NOTION_API_KEY")
+    api_token = Map.get(config, :api_token) ||
+                System.get_env("NOTION_API_TOKEN") ||
+                System.get_env("NOTION_API_KEY")
 
     if api_token do
       token_preview = String.slice(api_token, 0, 4) <> "..." <> String.slice(api_token, -4, 4)
       Logger.debug("Using Notion API token: #{token_preview}")
+      Map.put(config, :api_token, api_token)
     else
-      Logger.error("Notion API token not found! Check environment variable NOTION_API_KEY")
+      Logger.error("Notion API token not found! Check environment variables NOTION_API_TOKEN or NOTION_API_KEY")
+      Map.put(config, :api_token, nil)
     end
-
-    Map.put(config, :api_token, api_token)
   end
 
   defp req_options do

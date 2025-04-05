@@ -10,16 +10,6 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
   # Make sure mocks are verified when the test exits
   setup :verify_on_exit!
 
-  setup do
-    Application.put_env(:pii_detector, :notion_api_module, PIIDetector.Platform.Notion.APIMock)
-
-    on_exit(fn ->
-      Application.delete_env(:pii_detector, :notion_api_module)
-    end)
-
-    :ok
-  end
-
   describe "extract_content_from_page/2" do
     test "extracts text from a page's title and blocks" do
       page = %{
@@ -288,15 +278,7 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
         {:ok, %{}}
       end)
 
-      # Set application env to use the mock Slack platform
-      Application.put_env(:pii_detector, :slack_module, SlackMock)
-
-      try do
-        assert {:ok, _} = Notion.notify_content_creator(user_id, content, detected_pii)
-      after
-        # Clean up application env
-        Application.delete_env(:pii_detector, :slack_module)
-      end
+      assert {:ok, _} = Notion.notify_content_creator(user_id, content, detected_pii)
     end
 
     test "handles notification failure" do
@@ -309,15 +291,7 @@ defmodule PIIDetector.Platform.Notion.NotionTest do
         {:error, "Notification failed"}
       end)
 
-      # Set application env to use the mock Slack platform
-      Application.put_env(:pii_detector, :slack_module, SlackMock)
-
-      try do
-        assert {:error, "Notification failed"} = Notion.notify_content_creator(user_id, content, detected_pii)
-      after
-        # Clean up application env
-        Application.delete_env(:pii_detector, :slack_module)
-      end
+      assert {:error, "Notification failed"} = Notion.notify_content_creator(user_id, content, detected_pii)
     end
   end
 end

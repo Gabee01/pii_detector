@@ -19,29 +19,27 @@ defmodule PIIDetector.Platform.Notion.UserMapper do
     # In a real implementation, this would look up mappings in a database
     # For this implementation, we'll use a simple approach for demonstration
 
-    try do
-      # Placeholder for database lookup
-      # In a real implementation, we would:
-      # 1. Look up the mapping in a database table
-      # 2. If not found, try to match by email (if available)
-      # 3. If still not found, optionally try fuzzy name matching
+    # Placeholder for database lookup
+    # In a real implementation, we would:
+    # 1. Look up the mapping in a database table
+    # 2. If not found, try to match by email (if available)
+    # 3. If still not found, optionally try fuzzy name matching
 
-      # Simplified simulation of lookup
-      # This is where actual lookup logic would go
-      slack_user_id = mock_user_mapping(notion_user_id)
+    # Simplified simulation of lookup
+    # This is where actual lookup logic would go
+    slack_user_id = mock_user_mapping(notion_user_id)
 
-      if slack_user_id do
-        Logger.info("Mapped Notion user #{notion_user_id} to Slack user #{slack_user_id}")
-        {:ok, slack_user_id}
-      else
-        Logger.warning("No Slack user mapping found for Notion user #{notion_user_id}")
-        {:error, :user_not_found}
-      end
-    rescue
-      error ->
-        Logger.error("Error mapping Notion user to Slack user: #{inspect(error)}")
-        {:error, :mapping_error}
+    if slack_user_id do
+      Logger.info("Mapped Notion user #{notion_user_id} to Slack user #{slack_user_id}")
+      {:ok, slack_user_id}
+    else
+      Logger.warning("No Slack user mapping found for Notion user #{notion_user_id}")
+      {:error, :user_not_found}
     end
+  rescue
+    error ->
+      Logger.error("Error mapping Notion user to Slack user: #{inspect(error)}")
+      {:error, :mapping_error}
   end
 
   @doc """

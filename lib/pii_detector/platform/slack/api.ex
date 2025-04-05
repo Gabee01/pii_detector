@@ -12,7 +12,7 @@ defmodule PIIDetector.Platform.Slack.API do
 
   # Get the actual Slack API module (allows for test mocking)
   defp slack_api do
-    Application.get_env(:pii_detector, :slack_underlying_api, @slack_api)
+    Application.get_env(:pii_detector, :slack_api_module, @slack_api)
   end
 
   # Get admin token from environment

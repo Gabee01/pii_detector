@@ -1,16 +1,23 @@
 defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
-  use PIIDetector.DataCase
+  use PIIDetector.DataCase, async: false
 
   # Import Mox functions
   import Mox
 
-  alias PIIDetector.Workers.Event.NotionEventWorker
-  alias PIIDetector.Platform.Notion.APIMock
   alias PIIDetector.DetectorMock
+  alias PIIDetector.Platform.Notion.APIMock
   alias PIIDetector.Platform.NotionMock
+  alias PIIDetector.Workers.Event.NotionEventWorker
 
-  # Make sure mocks are verified when the test exits
-  setup :verify_on_exit!
+  # Set up mocks for this module - using our helper
+  setup :setup_mocks
+
+  # Additional setup specific to this test module
+  setup do
+    # Use global mode specifically for this test module
+    Mox.set_mox_global()
+    :ok
+  end
 
   describe "perform/1" do
     test "processes page creation event and detects PII" do
@@ -51,14 +58,14 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:pii_detected, true, %{"email" => ["test@example.com"]}}
       end)
 
-      # Test the worker
+      # Test the worker using Oban.Testing
       args = %{
         "type" => "page.created",
         "page" => %{"id" => "test_page_id"},
         "user" => %{"id" => "test_user_id"}
       }
 
-      assert :ok = perform_job(args)
+      assert :ok = perform_job(NotionEventWorker, args)
     end
 
     test "processes page creation event without PII" do
@@ -91,38 +98,41 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:pii_detected, false, %{}}
       end)
 
-      # Test the worker
+      # Test the worker using Oban.Testing
       args = %{
         "type" => "page.created",
         "page" => %{"id" => "test_page_id"},
         "user" => %{"id" => "test_user_id"}
       }
 
-      assert :ok = perform_job(args)
+      assert :ok = perform_job(NotionEventWorker, args)
     end
 
     test "handles database edited event" do
+      test_db_id = "test_db_id_#{System.unique_integer([:positive])}"
+
       # Mock Notion functions
       expect(NotionMock, :extract_content_from_database, fn _entries ->
         {:ok, "Test database content"}
       end)
 
       # Mock the Notion API responses with the updated signature
-      expect(APIMock, :get_database_entries, fn "test_db_id", _token, _opts ->
-        {:ok, [
-          %{
-            "properties" => %{
-              "Name" => %{
-                "type" => "title",
-                "title" => [%{"plain_text" => "Test Entry"}]
-              },
-              "Description" => %{
-                "type" => "rich_text",
-                "rich_text" => [%{"plain_text" => "This is a test entry."}]
+      expect(APIMock, :get_database_entries, fn
+        ^test_db_id, _, _ ->
+          {:ok, [
+            %{
+              "properties" => %{
+                "Name" => %{
+                  "type" => "title",
+                  "title" => [%{"plain_text" => "Test Entry"}]
+                },
+                "Description" => %{
+                  "type" => "rich_text",
+                  "rich_text" => [%{"plain_text" => "This is a test entry."}]
+                }
               }
             }
-          }
-        ]}
+          ]}
       end)
 
       # Mock detector to NOT find PII
@@ -130,14 +140,14 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:pii_detected, false, %{}}
       end)
 
-      # Test the worker
+      # Test the worker using Oban.Testing
       args = %{
         "type" => "database.edited",
-        "database_id" => "test_db_id",
+        "database_id" => test_db_id,
         "user" => %{"id" => "test_user_id"}
       }
 
-      assert :ok = perform_job(args)
+      assert :ok = perform_job(NotionEventWorker, args)
     end
 
     test "handles API errors gracefully" do
@@ -146,23 +156,14 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:error, "API error: 404"}
       end)
 
-      # Test the worker with error handling
+      # Test the worker using Oban.Testing
       args = %{
         "type" => "page.created",
         "page" => %{"id" => "test_page_id"},
         "user" => %{"id" => "test_user_id"}
       }
 
-      assert {:error, "API error: 404"} = perform_job(args)
+      assert {:error, "API error: 404"} = perform_job(NotionEventWorker, args)
     end
-  end
-
-  # Helper function to run Oban job
-  defp perform_job(args) do
-    # Create a job struct
-    job = %Oban.Job{args: args}
-
-    # Call the worker directly
-    NotionEventWorker.perform(job)
   end
 end

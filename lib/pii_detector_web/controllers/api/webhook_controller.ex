@@ -3,6 +3,13 @@ defmodule PIIDetectorWeb.API.WebhookController do
 
   require Logger
 
+  # def slack(conn, _params) do
+  #   # Will implement in next task
+  #   conn
+  #   |> put_status(200)
+  #   |> json(%{status: "ok"})
+  # end
+
   @doc """
   Handle incoming webhook from Notion.
   """
@@ -21,6 +28,11 @@ defmodule PIIDetectorWeb.API.WebhookController do
           Logger.info("Received Notion URL verification request")
           json(conn, %{challenge: params["challenge"]})
 
+        # Handle explicit challenge verification
+        _ when is_map_key(params, "challenge") ->
+          Logger.info("Received Notion URL verification challenge")
+          json(conn, %{challenge: params["challenge"]})
+
         # Queue the event for processing
         event_type when is_binary(event_type) ->
           Logger.info("Queueing Notion event: #{event_type}")
@@ -31,12 +43,12 @@ defmodule PIIDetectorWeb.API.WebhookController do
           |> Oban.insert()
 
           # Return success
-          json(conn, %{status: "success"})
+          json(conn, %{status: "ok"})
 
         # Unknown event type
         nil ->
           Logger.warning("Received Notion webhook with missing event type")
-          json(conn, %{status: "success"})
+          json(conn, %{status: "ok"})
       end
     else
       Logger.warning("Invalid Notion webhook request")
@@ -44,50 +56,8 @@ defmodule PIIDetectorWeb.API.WebhookController do
     end
   end
 
-  # Handle the verification token case (for backward compatibility)
-  defp handle_notion_verification_token(conn, %{"verification_token" => token}) do
-    Logger.info("Handling Notion webhook verification token: #{token}")
-
-    conn
-    |> put_status(200)
-    |> json(%{status: "ok"})
-  end
-
-  # Handle the challenge case (this is what Notion currently uses)
-  defp handle_notion_challenge(conn, %{"challenge" => challenge}) do
-    # Respond with the challenge value to verify webhook setup
-    Logger.info("Handling Notion webhook verification challenge: #{challenge}")
-
-    conn
-    |> put_status(200)
-    |> json(%{challenge: challenge})
-  end
-
-  defp verify_notion_webhook_signature(conn) do
-    # Log headers to check for Notion signature header
-    Logger.debug("Signature verification headers: #{inspect(conn.req_headers)}")
-
-    # In a real implementation, this would verify the webhook signature
-    # using the signing secret from the configuration and the x-notion-signature header
-
-    # Example verification logic (to be implemented):
-    # signature_header = get_req_header(conn, "x-notion-signature")
-    # if signature_header and verify_signature(conn.body_params, signature_header, webhook_secret) do
-    #   :ok
-    # else
-    #   {:error, "Invalid signature"}
-    # end
-
-    # For now, we'll skip validation in this implementation
-    # and just return :ok to accept all webhooks
-    # In a production environment, you would want to properly verify the signature
-
-    # TODO: Implement proper signature verification for production
-    :ok
-  end
-
   # Verify the incoming Notion request
-  defp verify_notion_request(conn, params) do
+  defp verify_notion_request(_conn, params) do
     # For now, we just verify if it has expected structure
     # In production, you should implement proper signature verification
     # This is called by the notion controller function

@@ -93,9 +93,7 @@ defmodule PIIDetector.Platform.Notion.MessageFormatter do
 
   # Helper function to format PII categories into a bullet list
   defp format_pii_categories(categories) do
-    categories
-    |> Enum.map(fn category -> "• #{format_category_name(category)}" end)
-    |> Enum.join("\n")
+    Enum.map_join(categories, "\n", fn category -> "• #{format_category_name(category)}" end)
   end
 
   # Helper function to format category names for display
@@ -104,7 +102,6 @@ defmodule PIIDetector.Platform.Notion.MessageFormatter do
     |> to_string()
     |> String.replace("_", " ")
     |> String.split(" ")
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 end

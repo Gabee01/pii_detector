@@ -87,28 +87,20 @@ defmodule PIIDetector.Platform.Notion do
   """
   @impl true
   def extract_content_from_page(page_data, blocks) do
-    try do
-      # Log the page structure for debugging
-      Logger.debug("Extracting content from page with structure: #{inspect(page_data)}")
+    # Extract page title if available
+    page_title = extract_page_title(page_data)
 
-      # Extract page title if available
-      page_title = extract_page_title(page_data)
-      Logger.debug("Extracted page title: #{page_title || "none"}")
+    # Extract content from blocks
+    {:ok, blocks_content} = extract_content_from_blocks(blocks)
 
-      # Extract content from blocks
-      {:ok, blocks_content} = extract_content_from_blocks(blocks)
-      Logger.debug("Extracted blocks content length: #{String.length(blocks_content)}")
+    # Combine title and content
+    content = if page_title, do: "#{page_title}\n#{blocks_content}", else: blocks_content
 
-      # Combine title and content
-      content = if page_title, do: "#{page_title}\n#{blocks_content}", else: blocks_content
-      Logger.debug("Combined page content length: #{String.length(content)}")
-
-      {:ok, content}
-    rescue
-      error ->
-        Logger.error("Failed to extract content from Notion page: #{inspect(error)}, stacktrace: #{inspect(Process.info(self(), :current_stacktrace))}")
-        {:error, "Failed to extract content from page"}
-    end
+    {:ok, content}
+  rescue
+    error ->
+      Logger.error("Failed to extract content from Notion page: #{inspect(error)}")
+      {:error, "Failed to extract content from page"}
   end
 
   @doc """
@@ -134,26 +126,17 @@ defmodule PIIDetector.Platform.Notion do
   """
   @impl true
   def extract_content_from_blocks(blocks) do
-    try do
-      Logger.debug("Extracting content from #{length(blocks)} blocks")
+    content =
+      blocks
+      |> Enum.map(&extract_text_from_block/1)
+      |> Enum.filter(&(&1 != nil))
+      |> Enum.join("\n")
 
-      content =
-        blocks
-        |> Enum.map(fn block ->
-          text = extract_text_from_block(block)
-          if text, do: Logger.debug("Extracted from block #{block["id"] || "unknown"}: #{String.slice(text, 0, 50)}...")
-          text
-        end)
-        |> Enum.filter(&(&1 != nil))
-        |> Enum.join("\n")
-
-      Logger.debug("Total extracted content from blocks: #{String.length(content)} characters")
-      {:ok, content}
-    rescue
-      error ->
-        Logger.error("Failed to extract content from Notion blocks: #{inspect(error)}, stacktrace: #{inspect(Process.info(self(), :current_stacktrace))}")
-        {:error, "Failed to extract content from blocks"}
-    end
+    {:ok, content}
+  rescue
+    error ->
+      Logger.error("Failed to extract content from Notion blocks: #{inspect(error)}")
+      {:error, "Failed to extract content from blocks"}
   end
 
   @doc """
@@ -179,19 +162,17 @@ defmodule PIIDetector.Platform.Notion do
   """
   @impl true
   def extract_content_from_database(database_entries) do
-    try do
-      content =
-        database_entries
-        |> Enum.map(&extract_text_from_database_entry/1)
-        |> Enum.filter(&(&1 != nil))
-        |> Enum.join("\n")
+    content =
+      database_entries
+      |> Enum.map(&extract_text_from_database_entry/1)
+      |> Enum.filter(&(&1 != nil))
+      |> Enum.join("\n")
 
-      {:ok, content}
-    rescue
-      error ->
-        Logger.error("Failed to extract content from Notion database: #{inspect(error)}")
-        {:error, "Failed to extract content from database"}
-    end
+    {:ok, content}
+  rescue
+    error ->
+      Logger.error("Failed to extract content from Notion database: #{inspect(error)}")
+      {:error, "Failed to extract content from database"}
   end
 
   @doc """
@@ -279,29 +260,10 @@ defmodule PIIDetector.Platform.Notion do
   defp extract_page_title(%{"properties" => %{"title" => title_data}}) do
     case title_data do
       %{"title" => rich_text_list} when is_list(rich_text_list) ->
-        rich_text_list
-        |> Enum.map(&extract_rich_text_content/1)
-        |> Enum.join("")
+        Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
 
       _ -> nil
     end
-  end
-
-  defp extract_page_title(%{"properties" => %{"Title" => title_data}}) do
-    case title_data do
-      %{"title" => rich_text_list} when is_list(rich_text_list) ->
-        rich_text_list
-        |> Enum.map(&extract_rich_text_content/1)
-        |> Enum.join("")
-
-      _ -> nil
-    end
-  end
-
-  defp extract_page_title(%{"title" => title_data}) when is_list(title_data) do
-    title_data
-    |> Enum.map(&extract_rich_text_content/1)
-    |> Enum.join("")
   end
 
   defp extract_page_title(_), do: nil
@@ -371,9 +333,7 @@ defmodule PIIDetector.Platform.Notion do
   defp extract_text_by_block_type(_, _), do: nil
 
   defp extract_rich_text_list(rich_text_list) when is_list(rich_text_list) do
-    rich_text_list
-    |> Enum.map(&extract_rich_text_content/1)
-    |> Enum.join("")
+    Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
   end
 
   defp extract_rich_text_list(_), do: ""
@@ -414,9 +374,7 @@ defmodule PIIDetector.Platform.Notion do
   end
 
   defp extract_property_value(%{"type" => "multi_select", "multi_select" => options}) do
-    options
-    |> Enum.map(& &1["name"])
-    |> Enum.join(", ")
+    Enum.map_join(options, ", ", & &1["name"])
   end
 
   defp extract_property_value(%{"type" => "date", "date" => %{"start" => start}}) do
@@ -439,7 +397,7 @@ defmodule PIIDetector.Platform.Notion do
   defp format_notification_message(_content, detected_pii) do
     # In a real implementation, use the message formatter
     # This is just a simplified example
-    categories = Map.keys(detected_pii) |> Enum.join(", ")
+    categories = Enum.map_join(Map.keys(detected_pii), ", ", &(&1))
 
     """
     *PII Detected in Your Notion Content*

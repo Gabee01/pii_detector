@@ -7,25 +7,15 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
   require Logger
 
-  # Use the actual modules for normal code, but allow for injection in tests
-  @detector PIIDetector.Detector
-  @notion_api PIIDetector.Platform.Notion.API
-  @notion_module PIIDetector.Platform.Notion
+  # Default implementations to use when not overridden
+  @default_detector PIIDetector.Detector
+  @default_notion_api PIIDetector.Platform.Notion.API
+  @default_notion_module PIIDetector.Platform.Notion
 
-  # Get the actual detector module (allows for test mocking)
-  defp detector do
-    Application.get_env(:pii_detector, :pii_detector_module, @detector)
-  end
-
-  # Get the Notion API module (allows for test mocking)
-  defp notion_api do
-    Application.get_env(:pii_detector, :notion_api_module, @notion_api)
-  end
-
-  # Get the Notion module (allows for test mocking)
-  defp notion_module do
-    Application.get_env(:pii_detector, :notion_module, @notion_module)
-  end
+  # Access the configured implementations at runtime to support testing
+  defp detector, do: Application.get_env(:pii_detector, :pii_detector_module, @default_detector)
+  defp notion_api, do: Application.get_env(:pii_detector, :notion_api_module, @default_notion_api)
+  defp notion_module, do: Application.get_env(:pii_detector, :notion_module, @default_notion_module)
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: args}) do
@@ -46,32 +36,38 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
     )
 
     # Process based on event type
-    case event_type do
-      "page.created" ->
-        if page_id, do: process_page_creation(page_id, user_id), else: log_missing_id("page_id", event_type)
+    process_by_event_type(event_type, page_id, database_id, user_id)
+  end
 
-      "page.updated" ->
-        if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", event_type)
+  # Process event based on its type
+  defp process_by_event_type("page.created", page_id, _database_id, user_id) do
+    if page_id, do: process_page_creation(page_id, user_id), else: log_missing_id("page_id", "page.created")
+  end
 
-      # Handle the content_updated event type
-      "page.content_updated" ->
-        if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", event_type)
+  defp process_by_event_type("page.updated", page_id, _database_id, user_id) do
+    if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", "page.updated")
+  end
 
-      # Handle the properties_updated event type
-      "page.properties_updated" ->
-        if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", event_type)
+  defp process_by_event_type("page.content_updated", page_id, _database_id, user_id) do
+    if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", "page.content_updated")
+  end
 
-      "database.edited" ->
-        if database_id, do: process_database_edit(database_id, user_id), else: log_missing_id("database_id", event_type)
+  defp process_by_event_type("page.properties_updated", page_id, _database_id, user_id) do
+    if page_id, do: process_page_update(page_id, user_id), else: log_missing_id("page_id", "page.properties_updated")
+  end
 
-      nil ->
-        Logger.warning("Received Notion event with missing event type")
-        {:error, "Missing event type in Notion webhook"}
+  defp process_by_event_type("database.edited", _page_id, database_id, user_id) do
+    if database_id, do: process_database_edit(database_id, user_id), else: log_missing_id("database_id", "database.edited")
+  end
 
-      _ ->
-        Logger.info("Ignoring unhandled Notion event type: #{event_type}")
-        :ok
-    end
+  defp process_by_event_type(nil, _page_id, _database_id, _user_id) do
+    Logger.warning("Received Notion event with missing event type")
+    {:error, "Missing event type in Notion webhook"}
+  end
+
+  defp process_by_event_type(event_type, _page_id, _database_id, _user_id) do
+    Logger.info("Ignoring unhandled Notion event type: #{event_type}")
+    :ok
   end
 
   # Log missing ID errors
@@ -101,54 +97,54 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
   end
 
   defp process_page_update(page_id, user_id) do
-    # Process almost the same as page creation
+    # Process page update similar to page creation but with more detailed logging
     Logger.info("Processing page update for page_id: #{page_id}, user_id: #{user_id}")
 
-    # Get page content
-    Logger.debug("Fetching page data from Notion API for page: #{page_id}")
-    case notion_api().get_page(page_id, nil, []) do
-      {:ok, page} ->
-        Logger.debug("Successfully fetched page data for #{page_id}: #{inspect(page)}")
-        Logger.debug("Fetching blocks for page: #{page_id}")
-
-        case notion_api().get_blocks(page_id, nil, []) do
-          {:ok, blocks} ->
-            Logger.debug("Successfully fetched #{length(blocks)} blocks for page #{page_id}")
-            Logger.debug("First block sample: #{inspect(List.first(blocks))}")
-            Logger.debug("Extracting content from page and blocks")
-
-            case notion_module().extract_content_from_page(page, blocks) do
-              {:ok, content} ->
-                Logger.debug("Successfully extracted content: #{inspect(String.slice(content, 0, 100))}...")
-                # Check for PII
-                Logger.debug("Detecting PII in content")
-                detect_and_handle_pii(page_id, user_id, content)
-
-              {:error, reason} = error ->
-                Logger.error("Error extracting content from Notion page: #{inspect(reason)}",
-                  page_id: page_id,
-                  user_id: user_id,
-                  error: reason
-                )
-                error
-            end
-
-          {:error, reason} = error ->
-            Logger.error("Error fetching blocks for Notion page: #{inspect(reason)}",
-              page_id: page_id,
-              user_id: user_id,
-              error: reason
-            )
-            error
-        end
-
-      {:error, reason} = error ->
-        Logger.error("Error fetching Notion page: #{inspect(reason)}",
+    # Use with for cleaner error handling
+    with {:ok, page} <- fetch_page(page_id),
+         {:ok, blocks} <- fetch_blocks(page_id),
+         {:ok, content} <- extract_content(page, blocks) do
+      # Check for PII
+      detect_and_handle_pii(page_id, user_id, content)
+    else
+      {:error, reason} ->
+        Logger.error("Error processing Notion page update: #{inspect(reason)}",
           page_id: page_id,
           user_id: user_id,
           error: reason
         )
-        error
+        {:error, reason}
+    end
+  end
+
+  # Helper functions for fetching data with logging
+  defp fetch_page(page_id) do
+    Logger.debug("Fetching page data from Notion API for page: #{page_id}")
+    case notion_api().get_page(page_id, nil, []) do
+      {:ok, _page} = success ->
+        Logger.debug("Successfully fetched page data")
+        success
+      error -> error
+    end
+  end
+
+  defp fetch_blocks(page_id) do
+    Logger.debug("Fetching blocks for page: #{page_id}")
+    case notion_api().get_blocks(page_id, nil, []) do
+      {:ok, _blocks} = success ->
+        Logger.debug("Successfully fetched blocks")
+        success
+      error -> error
+    end
+  end
+
+  defp extract_content(page, blocks) do
+    Logger.debug("Extracting content from page and blocks")
+    case notion_module().extract_content_from_page(page, blocks) do
+      {:ok, content} = success ->
+        Logger.debug("Successfully extracted content: #{String.slice(content, 0, 100)}...")
+        success
+      error -> error
     end
   end
 
