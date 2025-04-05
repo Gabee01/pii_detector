@@ -23,6 +23,7 @@ defmodule PIIDetectorWeb.ConnCase do
       @endpoint PIIDetectorWeb.Endpoint
 
       use PIIDetectorWeb, :verified_routes
+      use Oban.Testing, repo: PIIDetector.Repo
 
       # Import conveniences for testing with connections
       import Plug.Conn

@@ -26,6 +26,7 @@ defmodule PIIDetector.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import PIIDetector.DataCase
+      use Oban.Testing, repo: PIIDetector.Repo
     end
   end
 
