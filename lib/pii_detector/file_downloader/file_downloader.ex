@@ -135,9 +135,10 @@ defmodule PIIDetector.FileDownloader do
 
   defp handle_redirect(headers, token, req_module) do
     # Get the location header
-    location = Enum.find_value(headers, fn {key, value} ->
-      if String.downcase(key) == "location", do: value
-    end)
+    location =
+      Enum.find_value(headers, fn {key, value} ->
+        if String.downcase(key) == "location", do: value
+      end)
 
     if location do
       Logger.debug("Following redirect to: #{location}")
@@ -150,9 +151,9 @@ defmodule PIIDetector.FileDownloader do
   defp validate_downloaded_content(body) when is_binary(body) do
     # Check if the content appears to be HTML or XML
     if String.starts_with?(body, "<!DOCTYPE") ||
-       String.starts_with?(body, "<html") ||
-       String.contains?(body, "<head") ||
-       String.starts_with?(body, "<?xml") do
+         String.starts_with?(body, "<html") ||
+         String.contains?(body, "<head") ||
+         String.starts_with?(body, "<?xml") do
       # This is likely an HTML page, not the actual file
       Logger.error("Downloaded content appears to be HTML/XML, not the expected file data")
       {:error, "Download failed: received HTML instead of file data"}

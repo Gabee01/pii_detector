@@ -148,6 +148,7 @@ defmodule PIIDetector.AI.ClaudeService do
   end
 
   defp add_image_to_content(content, nil), do: content
+
   defp add_image_to_content(content, image_data) do
     Logger.debug("Adding image to multimodal content: #{image_data.name || "unnamed"}")
 
@@ -171,6 +172,7 @@ defmodule PIIDetector.AI.ClaudeService do
   end
 
   defp add_pdf_to_content(content, nil), do: content
+
   defp add_pdf_to_content(content, pdf_data) do
     Logger.debug("Adding PDF to multimodal content: #{pdf_data.name || "unnamed"}")
 
@@ -197,11 +199,16 @@ defmodule PIIDetector.AI.ClaudeService do
   defp html_base64?(base64_data) do
     # Check common HTML patterns in base64
     html_patterns = [
-      "PCFET0NUWV", # <!DOCTY
-      "PGh0bWw", # <html
-      "PHhtbC", # <xml
-      "PGhlYWQ", # <head
-      "PGJvZHk" # <body
+      # <!DOCTY
+      "PCFET0NUWV",
+      # <html
+      "PGh0bWw",
+      # <xml
+      "PHhtbC",
+      # <head
+      "PGhlYWQ",
+      # <body
+      "PGJvZHk"
     ]
 
     Enum.any?(html_patterns, fn pattern ->

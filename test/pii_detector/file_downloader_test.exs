@@ -185,6 +185,7 @@ defmodule PIIDetector.FileDownloaderTest do
           <body>This is not an image file</body>
         </html>
         """
+
         {:ok, %{status: 200, body: html_content}}
       end
 
