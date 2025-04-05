@@ -42,6 +42,9 @@ config :pii_detector, Oban, testing: :manual
 # Configure mocks for testing
 config :pii_detector, :pii_detector_module, PIIDetector.DetectorMock
 config :pii_detector, :slack_api_module, PIIDetector.Platform.Slack.APIMock
+config :pii_detector, :file_service, PIIDetector.FileServiceMock
+config :pii_detector, :slack_file_adapter, PIIDetector.FileServiceMock
+config :pii_detector, :notion_file_adapter, PIIDetector.FileServiceMock
 
 # Configure AI service for testing
 config :pii_detector, :ai_service, PIIDetector.AI.AIServiceMock

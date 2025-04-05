@@ -194,6 +194,40 @@ defmodule PIIDetector.Platform.Notion do
   end
 
   @doc """
+  Extracts page content and files from page and blocks results.
+
+  This function combines page and blocks data to extract both textual content
+  and file objects for processing.
+
+  ## Parameters
+
+  - `page_result`: Result tuple from get_page API call
+  - `blocks_result`: Result tuple from get_blocks API call
+
+  ## Returns
+
+  - `{:ok, content, files}`: Success with content string and list of file objects
+  - `{:error, reason}`: Error with reason
+  """
+  @impl true
+  def extract_page_content({:ok, page}, {:ok, blocks}) do
+    # Get nested blocks for any blocks with children
+    blocks_with_nested = fetch_nested_blocks(blocks)
+
+    # Extract files from blocks
+    files = extract_files_from_blocks(blocks_with_nested)
+    Logger.debug("Found #{length(files)} files in page")
+
+    # Extract text content
+    with {:ok, content} <- extract_content_from_page(page, blocks_with_nested) do
+      {:ok, content, files}
+    end
+  end
+
+  def extract_page_content({:error, _reason} = error, _), do: error
+  def extract_page_content(_, {:error, _reason} = error), do: error
+
+  @doc """
   Archives a Notion page.
 
   Uses the Notion API to mark a page as archived.
@@ -378,13 +412,18 @@ defmodule PIIDetector.Platform.Notion do
 
   defp extract_text_from_block(%{"type" => type, "has_children" => _has_children} = block) do
     case Map.get(@block_handlers, type) do
-      nil -> nil
-      handler -> handler.(type, block)
+      nil ->
+        nil
+
+      handler ->
+        result = handler.(type, block)
+        maybe_add_nested_content(result, block, type)
     end
   end
 
   defp extract_text_from_block(_), do: nil
 
+  # Helper functions for text extraction
   defp extract_rich_text_list(rich_text_list) when is_list(rich_text_list) do
     Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
   end
@@ -393,6 +432,43 @@ defmodule PIIDetector.Platform.Notion do
 
   defp extract_rich_text_content(%{"plain_text" => text}), do: text
   defp extract_rich_text_content(_), do: ""
+
+  # Handle nested blocks content
+  defp maybe_add_nested_content(result, block, type) do
+    case Map.get(block, "children") do
+      nil ->
+        result
+
+      children when is_list(children) ->
+        # Recursively process nested blocks and join with parent content
+        Logger.debug("Processing #{length(children)} nested blocks for block type: #{type}")
+        nested_content = extract_content_from_blocks(children)
+        combine_parent_and_nested_content(result, nested_content)
+
+      _ ->
+        result
+    end
+  end
+
+  # Combine parent and nested content
+  defp combine_parent_and_nested_content(parent_result, nested_content) do
+    case nested_content do
+      {:ok, ""} ->
+        Logger.debug("No content extracted from nested blocks")
+        parent_result
+
+      {:ok, content} ->
+        Logger.debug(
+          "Extracted content from nested blocks: #{String.slice(content, 0, 100)}#{if String.length(content) > 100, do: "...", else: ""}"
+        )
+
+        if parent_result, do: "#{parent_result}\n#{content}", else: content
+
+      error ->
+        Logger.warning("Error extracting content from nested blocks: #{inspect(error)}")
+        parent_result
+    end
+  end
 
   defp extract_text_from_database_entry(%{"properties" => properties}) do
     properties
@@ -435,4 +511,89 @@ defmodule PIIDetector.Platform.Notion do
     The content has been archived to protect sensitive information. Please review and remove any personal data before restoring.
     """
   end
+
+  #
+  # Private helper functions for content extraction
+  #
+
+  # File block types in Notion that may contain files to check for PII
+  @file_block_types ["image", "file", "pdf", "video"]
+
+  # Recursively fetch nested blocks for blocks with children
+  defp fetch_nested_blocks(blocks) do
+    Logger.debug("Fetching nested blocks from #{length(blocks)} blocks")
+
+    Enum.reduce(blocks, [], fn block, acc ->
+      processed_block = process_block_with_children(block)
+      [processed_block | acc]
+    end)
+    |> Enum.reverse()
+  end
+
+  # Process a single block, fetching children if needed
+  defp process_block_with_children(block) do
+    if should_fetch_children?(block) do
+      fetch_and_add_children(block)
+    else
+      block
+    end
+  end
+
+  # Determine if we should fetch children for this block
+  defp should_fetch_children?(block) do
+    block["has_children"] == true && block["type"] != "child_page"
+  end
+
+  # Fetch children blocks and add them to the parent block
+  defp fetch_and_add_children(block) do
+    Logger.debug(
+      "Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}"
+    )
+
+    case notion_api().get_blocks(block["id"], nil, []) do
+      {:ok, child_blocks} ->
+        add_children_to_block(block, child_blocks)
+
+      {:error, reason} ->
+        Logger.warning(
+          "Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}"
+        )
+
+        block
+
+      unexpected ->
+        Logger.warning("Unexpected response when fetching child blocks: #{inspect(unexpected)}")
+        block
+    end
+  end
+
+  # Add fetched children to the parent block
+  defp add_children_to_block(block, child_blocks) do
+    Logger.debug("Found #{length(child_blocks)} child blocks for block id: #{block["id"]}")
+    # Recursively fetch nested blocks of children
+    nested_child_blocks = fetch_nested_blocks(child_blocks)
+    # Return this block with its nested blocks
+    Map.put(block, "children", nested_child_blocks)
+  end
+
+  # Extract file objects from blocks
+  defp extract_files_from_blocks(blocks) when is_list(blocks) do
+    Enum.flat_map(blocks, &extract_files_from_block/1)
+  end
+
+  defp extract_files_from_blocks(_), do: []
+
+  # Extract files from a single block
+  defp extract_files_from_block(%{"type" => type} = block) when type in @file_block_types do
+    # Extract file object from the block
+    file_obj = Map.get(block, type)
+    if file_obj, do: [file_obj], else: []
+  end
+
+  defp extract_files_from_block(%{"has_children" => true, "children" => children}) do
+    # Recursively extract files from child blocks
+    extract_files_from_blocks(children)
+  end
+
+  defp extract_files_from_block(_), do: []
 end

@@ -12,6 +12,12 @@ defmodule PIIDetector.Platform.Notion.Behaviour do
   @callback extract_content_from_database(database_data :: list(map())) ::
               {:ok, String.t()} | {:error, any()}
 
+  @callback extract_page_content(
+              page_result :: {:ok, map()} | {:error, any()},
+              blocks_result :: {:ok, list(map())} | {:error, any()}
+            ) ::
+              {:ok, String.t(), list(map())} | {:error, any()}
+
   @callback archive_content(content_id :: String.t()) ::
               {:ok, map()} | {:error, any()}
 

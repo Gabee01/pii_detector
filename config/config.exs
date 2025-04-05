@@ -14,6 +14,11 @@ config :pii_detector,
 # Configure AI service
 config :pii_detector, :ai_service, PIIDetector.AI.ClaudeService
 
+# Configure file handling services
+config :pii_detector, :file_service, PIIDetector.FileService.Processor
+config :pii_detector, :slack_file_adapter, PIIDetector.Platform.Slack.FileAdapter
+config :pii_detector, :notion_file_adapter, PIIDetector.Platform.Notion.FileAdapter
+
 # Configure Notion API
 config :pii_detector, PIIDetector.Platform.Notion,
   api_key: System.get_env("NOTION_API_KEY"),
