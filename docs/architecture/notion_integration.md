@@ -52,6 +52,26 @@ The platform module implements higher-level functionality:
 - User notifications via Slack
 - Error handling and logging
 
+### 4. Webhook Controller (`PIIDetectorWeb.API.WebhookController`)
+
+The webhook controller handles incoming webhook events from Notion:
+
+- Validates incoming webhook requests
+- Handles verification challenges for webhook setup
+- Processes webhook events and queues them for asynchronous handling
+- Provides feedback to Notion about successful receipt of events
+- Implements error handling for malformed or invalid webhooks
+
+### 5. Notion Event Worker (`PIIDetector.Workers.Event.NotionEventWorker`)
+
+The Oban worker handles the asynchronous processing of webhook events:
+
+- Processes events from the webhook controller via Oban job queue
+- Extracts relevant information from Notion events
+- Applies appropriate business logic based on event type
+- Logs processing events and errors
+- Implements retry mechanisms for failed operations
+
 ## API Capabilities
 
 The Notion API client provides the following capabilities:
@@ -69,6 +89,111 @@ The Notion API client provides the following capabilities:
 
 - **get_database_entries/3**: Retrieves entries from a Notion database
 - **archive_database_entry/3**: Archives a database entry when PII is detected
+
+## Webhook Integration
+
+The webhook integration enables real-time processing of Notion events:
+
+### Event Types
+
+The system can process various Notion webhook events, including:
+
+- **page.created**: A new page is created
+- **page.updated**: An existing page is updated
+- **page.content_updated**: Page content is modified
+- **database.edited**: A database structure is modified
+- **database.rows.added**: New entries are added to a database
+
+### Webhook Format
+
+Notion webhooks follow this general structure:
+
+```json
+{
+  "attempt_number": 1,
+  "authors": [
+    {
+      "id": "2b542981-e92e-482e-ae82-3b239b95abb3", 
+      "type": "person"
+    }
+  ],
+  "data": {
+    "parent": {
+      "id": "30aea340-3ab7-44d8-b9b0-22942313afe6", 
+      "type": "space"
+    },
+    "updated_blocks": [
+      {
+        "id": "1cc30e6a-7e4c-80e5-be03-e8385ec821b5", 
+        "type": "block"
+      }
+    ]
+  },
+  "entity": {
+    "id": "1cc30e6a-7e4c-8041-aa33-d44149e66ae0", 
+    "type": "page"
+  },
+  "id": "f70aa2d5-9770-4fb3-af9e-e09f3c1c4849",
+  "integration_id": "1ccd872b-594c-80c3-8c4a-0037bc1553ae",
+  "subscription_id": "1ccd872b-594c-814b-8e51-0099cd696b63",
+  "timestamp": "2025-04-05T18:43:38.361Z",
+  "type": "page.content_updated",
+  "workspace_id": "30aea340-3ab7-44d8-b9b0-22942313afe6",
+  "workspace_name": "Gabriel Carraro's Notion"
+}
+```
+
+### Webhook Handling Flow
+
+```
+┌───────────────┐     ┌────────────────────┐     ┌────────────────────┐
+│               │     │                    │     │                    │
+│  Notion       │────▶│  Webhook           │────▶│  NotionEventWorker │
+│  (Webhook)    │     │  Controller        │     │  (Oban Job)        │
+│               │     │                    │     │                    │
+└───────────────┘     └────────────────────┘     └────────────────────┘
+                                                          │
+                                                          ▼
+                                                  ┌────────────────────┐
+                                                  │                    │
+                                                  │  PII Detection     │
+                                                  │  & Actions         │
+                                                  │                    │
+                                                  └────────────────────┘
+```
+
+1. **Receipt**: Notion sends a webhook to the application endpoint
+2. **Validation**: The webhook controller validates the request
+3. **Enqueuing**: Valid events are enqueued as Oban jobs for async processing
+4. **Processing**: The NotionEventWorker processes the event
+5. **Action**: Appropriate actions are taken based on the event type
+
+### Webhook Setup
+
+To set up Notion webhooks:
+
+1. Create a Notion integration with the required capabilities
+2. Configure the integration to send webhooks to your application's webhook endpoint
+3. Set up verification by responding to the challenge request
+4. Ensure your application's endpoint is publicly accessible
+
+### Webhook Verification
+
+Notion sends a one-time verification request when setting up a webhook subscription. According to the [Notion documentation](https://developers.notion.com/reference/webhooks), the verification request contains a `verification_token` that must be acknowledged:
+
+```json
+{
+  "verification_token": "secret_tMrlL1qK5vuQAh1b6cZGhFChZTSYJlce98V0pYn7yBl"
+}
+```
+
+Our webhook controller responds to this request by returning the token value in a `challenge` field:
+
+```json
+{
+  "challenge": "secret_tMrlL1qK5vuQAh1b6cZGhFChZTSYJlce98V0pYn7yBl"
+}
+```
 
 ## Content Extraction
 
@@ -132,6 +257,37 @@ The API client implements comprehensive error handling:
 
 Each error case includes detailed logging to help diagnose and resolve issues.
 
+## Asynchronous Processing with Oban
+
+The system uses Oban for background job processing:
+
+### Configuration
+
+```elixir
+# Configure Oban for job processing
+config :pii_detector, Oban,
+  engine: Oban.Engines.Basic,
+  repo: PIIDetector.Repo,
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+  ],
+  queues: [
+    default: 10,
+    events: 20,
+    pii_detection: 5
+  ]
+```
+
+### Job Processing
+
+Notion events are processed using dedicated workers:
+
+1. **NotionEventWorker**: Processes webhooks from Notion
+2. **Event Uniqueness**: Uses the webhook ID and other identifiers for deduplication
+3. **Retries**: Failed jobs are retried up to 3 times
+4. **Logging**: Comprehensive logging tracks job processing
+
 ## Request Configuration
 
 The API client supports configurable request options:
@@ -188,6 +344,49 @@ end
 {:ok, detected_pii} = PIIDetector.Detector.detect_pii(content)
 ```
 
+### Processing Webhook Events
+
+```elixir
+# Handle incoming webhook event (controller)
+def notion(conn, params) do
+  # Verify webhook request
+  if verify_notion_request(conn, params) do
+    # Process based on webhook type
+    case get_webhook_type(params) do
+      # Handle verification request
+      {:verification, token} ->
+        json(conn, %{challenge: token})
+        
+      # Process valid event type
+      {:event, event_type} ->
+        # Generate a unique ID for deduplication using entity, author, and webhook IDs
+        unique_id = generate_unique_id(params, event_type)
+        
+        # Add the unique ID to the job params
+        job_params = Map.put(params, "webhook_id", unique_id)
+        
+        # Enqueue the event for processing with the unique key approach
+        job_params
+        |> PIIDetector.Workers.Event.NotionEventWorker.new(
+            unique: [period: 60, keys: [:webhook_id]]
+          )
+        |> Oban.insert()
+        |> case do
+            {:ok, _} -> json(conn, %{status: "ok"})
+            {:error, _} -> json(conn, %{status: "ok", message: "Webhook received but job could not be processed"})
+          end
+        
+      # Handle invalid event
+      :invalid ->
+        json(conn, %{status: "ok"})
+    end
+  else
+    # Invalid webhook request
+    send_resp(conn, 401, "Unauthorized") 
+  end
+end
+```
+
 ## Testing
 
 The Notion integration is designed for easy testing using Mox for mocking:
@@ -210,6 +409,52 @@ test "archives content successfully" do
 end
 ```
 
+### Testing Webhooks
+
+Webhooks can be tested using Oban.Testing:
+
+```elixir
+# In ConnCase or DataCase
+use Oban.Testing, repo: PIIDetector.Repo
+
+# Test webhook verification request
+test "responds to Notion verification request", %{conn: conn} do
+  verification_token = "verification_token_123"
+
+  conn = post(conn, ~p"/api/webhooks/notion", %{"verification_token" => verification_token})
+
+  assert json_response(conn, 200) == %{"challenge" => verification_token}
+  refute_enqueued worker: PIIDetector.Workers.Event.NotionEventWorker
+end
+
+# Test real webhook event
+test "handles real-world Notion webhook format", %{conn: conn} do
+  # Real webhook example from Notion
+  webhook_data = %{
+    "attempt_number" => 1,
+    "authors" => [%{"id" => "2b542981-e92e-482e-ae82-3b239b95abb3", "type" => "person"}],
+    "data" => %{
+      "parent" => %{"id" => "30aea340-3ab7-44d8-b9b0-22942313afe6", "type" => "space"},
+      "updated_blocks" => [%{"id" => "1cc30e6a-7e4c-80e5-be03-e8385ec821b5", "type" => "block"}]
+    },
+    "entity" => %{"id" => "1cc30e6a-7e4c-8041-aa33-d44149e66ae0", "type" => "page"},
+    "id" => "f70aa2d5-9770-4fb3-af9e-e09f3c1c4849",
+    "integration_id" => "1ccd872b-594c-80c3-8c4a-0037bc1553ae",
+    "subscription_id" => "1ccd872b-594c-814b-8e51-0099cd696b63",
+    "timestamp" => "2025-04-05T18:43:38.361Z",
+    "type" => "page.content_updated",
+    "workspace_id" => "30aea340-3ab7-44d8-b9b0-22942313afe6",
+    "workspace_name" => "Gabriel Carraro's Notion"
+  }
+
+  conn = post(conn, ~p"/api/webhooks/notion", webhook_data)
+  assert json_response(conn, 200) == %{"status" => "ok"}
+  
+  # Assert that the job was enqueued
+  assert_enqueued worker: PIIDetector.Workers.Event.NotionEventWorker
+end
+```
+
 ## Security Considerations
 
 When using the Notion API:
@@ -218,6 +463,8 @@ When using the Notion API:
 2. **Integration Permissions**: Use the minimal permissions required for your integration
 3. **Token Rotation**: Implement a strategy for regular key rotation
 4. **PII Handling**: Ensure PII detected in content is properly secured and not retained longer than necessary
+5. **Webhook Signatures**: Validate webhook requests using proper signature verification
+6. **Idempotency**: Ensure webhook processing is idempotent to handle duplicate events
 
 ## Setup in Notion
 
@@ -227,6 +474,9 @@ To use this integration with Notion:
 2. Set appropriate capabilities (read content, update content)
 3. Share pages/databases with your integration
 4. Set the integration key in your application configuration or environment variables
+5. Configure webhook settings in the Notion integration
+6. Add your application's endpoint URL as the webhook target
+7. Complete the verification challenge process
 
 ## Configuration Reference
 

@@ -31,8 +31,9 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
       user_id: user_id
     )
 
-    # Implement actual Notion event processing logic
-    # For now, we just log the event and return :ok
+    # Process the Notion event based on its type
+    # This is a placeholder implementation that will be expanded
+    # as we implement specific event handling logic
 
     Logger.info(
       "Successfully processed Notion event for page #{page_id}",
