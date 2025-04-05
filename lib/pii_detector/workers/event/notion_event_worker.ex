@@ -70,9 +70,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
         )
     end
 
-    # Always return :ok to satisfy the test expectations
-    # This is a simplification to match tests, we're still logging the actual results
-    :ok
+    # Return the actual result rather than always returning :ok
+    result
   end
 
   # Process event based on its type

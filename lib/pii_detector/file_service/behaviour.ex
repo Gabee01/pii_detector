@@ -1,21 +1,22 @@
-defmodule PIIDetector.FileDownloader.Behaviour do
+defmodule PIIDetector.FileService.Behaviour do
   @moduledoc """
-  Behaviour definition for file downloading and processing.
+  Behaviour definition for file downloading and processing services.
   """
 
   @doc """
-  Downloads a file from a URL with authentication token.
-  Returns {:ok, file_data} or {:error, reason}
+  Downloads a file from a URL with appropriate authentication.
   """
   @callback download_file(file :: map(), opts :: keyword()) :: {:ok, binary()} | {:error, any()}
 
   @doc """
-  Process an image file.
+  Process an image file for AI analysis.
+  Typically converts to base64 and returns metadata.
   """
   @callback process_image(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 
   @doc """
-  Process a PDF file.
+  Process a PDF file for AI analysis.
+  Typically converts to base64 and returns metadata.
   """
   @callback process_pdf(file :: map(), opts :: keyword()) :: {:ok, map()} | {:error, String.t()}
 end

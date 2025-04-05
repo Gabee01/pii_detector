@@ -22,6 +22,9 @@ defmodule PIIDetector.TestMocks do
   # Mock for the FileDownloader
   defmock(PIIDetector.FileDownloaderMock, for: PIIDetector.FileDownloader.Behaviour)
 
+  # Mock for the FileService
+  defmock(PIIDetector.FileServiceMock, for: PIIDetector.FileService.Behaviour)
+
   # Mock for the Notion API
   defmock(PIIDetector.Platform.Notion.APIMock, for: PIIDetector.Platform.Notion.APIBehaviour)
 

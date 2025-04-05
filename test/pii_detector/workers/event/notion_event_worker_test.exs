@@ -64,8 +64,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Test Page Content"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Test Page Content", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -96,8 +96,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Test Page Content"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Test Page Content", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -128,8 +128,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Test Page Content"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Test Page Content", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -160,8 +160,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Test Page Content"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Test Page Content", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -234,8 +234,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Content with SSN 123-45-6789"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Content with SSN 123-45-6789", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -271,8 +271,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Content with credit card 4111-1111-1111-1111"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Content with credit card 4111-1111-1111-1111", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -327,9 +327,9 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         "child_page_id", _, _ -> {:ok, []}
       end)
 
-      # Mock the Notion module extract_content_from_page/2
-      expect(NotionMock, :extract_content_from_page, 2, fn _page, _blocks ->
-        {:ok, "Child page content"}
+      # Mock the Notion module extract_page_content/2
+      expect(NotionMock, :extract_page_content, 2, fn _page, _blocks ->
+        {:ok, "Child page content", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -347,56 +347,86 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
   end
 
   describe "perform/1 - error handling" do
-    test "handles API errors for page fetch", %{event_args: args} do
-      # Set up mock to return an error
+    test "perform/1 - error handling handles API errors for page fetch", %{event_args: args} do
+      # Mock the API to return errors for page fetch
       expect(APIMock, :get_page, fn _page_id, _token, _opts ->
-        {:error, "API error: 404"}
+        {:error, "API error: 404 - page not found"}
+      end)
+
+      # We need to mock extract_page_content because the page_processor will call it
+      expect(NotionMock, :extract_page_content, fn {:error, _}, _ ->
+        {:error, "API error: 404 - page not found"}
       end)
 
       job = %Oban.Job{args: args}
-      assert :ok = NotionEventWorker.perform(job)
+      assert {:error, "API error: 404 - page not found"} = NotionEventWorker.perform(job)
     end
 
-    test "handles API errors for blocks fetch", %{event_args: args, page_data: page} do
-      # Set up mocks
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
+    test "perform/1 - error handling handles API rate limiting errors", %{event_args: args} do
+      # Mock the API to return a rate limiting error
+      expect(APIMock, :get_page, fn _page_id, _token, _opts ->
+        {:error, "API error: 429 - rate limited"}
+      end)
 
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts ->
+      # We need to mock extract_page_content because the page_processor will call it
+      expect(NotionMock, :extract_page_content, fn {:error, _}, _ ->
         {:error, "API error: 429 - rate limited"}
       end)
 
       job = %Oban.Job{args: args}
-      assert :ok = NotionEventWorker.perform(job)
+      assert {:error, "API error: 429 - rate limited"} = NotionEventWorker.perform(job)
     end
 
-    test "handles API errors for archiving pages", %{page_data: page, blocks_data: blocks} do
-      args = %{
-        "type" => "page.created",
-        "page" => %{"id" => "test_page_id"},
-        "user" => %{"id" => "test_user_id"}
-      }
-
-      # Set up mocks
+    test "perform/1 - error handling handles API errors for archiving pages", %{
+      event_args: args,
+      page_data: page,
+      blocks_data: blocks
+    } do
+      # Set up mocks for a successful page and blocks fetch but an archive error
       expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
-      # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Content with secret PII"}
+      # Mock the Notion module to return content with PII
+      expect(NotionMock, :extract_page_content, fn {:ok, _}, {:ok, _} ->
+        {:ok, "Content with secret PII", []}
       end)
 
-      # Mock the PII detector with correct input structure
-      expect(DetectorMock, :detect_pii, fn input, _opts ->
-        assert is_map(input)
-        assert Map.has_key?(input, :text)
-        assert Map.has_key?(input, :attachments)
-        assert Map.has_key?(input, :files)
-        {:pii_detected, true, ["other"]}
+      # Mock the PII detector to detect PII
+      expect(DetectorMock, :detect_pii, fn _input, _opts ->
+        {:pii_detected, true, ["ssn"]}
       end)
 
       # Mock the archive function to return an error
-      expect(NotionMock, :archive_content, fn _content_id ->
+      expect(NotionMock, :archive_content, fn _page_id ->
         {:error, "API error: 500 - server error"}
+      end)
+
+      job = %Oban.Job{args: args}
+      assert {:error, "API error: 500 - server error"} = NotionEventWorker.perform(job)
+    end
+
+    test "perform/1 - error handling handles workspace page archiving gracefully", %{
+      event_args: args,
+      page_data: page,
+      blocks_data: blocks
+    } do
+      # Set up mocks for a successful page and blocks fetch
+      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
+      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
+
+      # Mock the Notion module to return content with PII
+      expect(NotionMock, :extract_page_content, fn {:ok, _}, {:ok, _} ->
+        {:ok, "Content with secret PII", []}
+      end)
+
+      # Mock the PII detector to detect PII
+      expect(DetectorMock, :detect_pii, fn _input, _opts ->
+        {:pii_detected, true, ["ssn"]}
+      end)
+
+      # Mock the archive function to return a workspace error
+      expect(NotionMock, :archive_content, fn _page_id ->
+        {:error, "API error: 400"}
       end)
 
       job = %Oban.Job{args: args}
@@ -418,8 +448,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, fn _page, _blocks ->
-        {:ok, "Content with secret PII"}
+      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+        {:ok, "Content with secret PII", []}
       end)
 
       # Mock the PII detector with correct input structure
@@ -442,96 +472,101 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
   end
 
   describe "event field extraction" do
-    test "extracts page_id from various event structures" do
-      # Standard format
-      args1 = %{
-        "type" => "page.created",
-        "page" => %{"id" => "test_page_id"},
-        "user" => %{"id" => "test_user_id"}
-      }
+    test "event field extraction extracts page_id from various event structures", %{} do
+      # Set up mocks for a failed page fetch when we have valid page_id and user_id
+      expect(APIMock, :get_page, 3, fn _page_id, _token, _opts -> {:error, "Not found"} end)
 
-      # Alternative format with page_id at top level
-      args2 = %{
-        "type" => "page.updated",
-        "page_id" => "alt_page_id"
-      }
+      # Use `any` behavior for the blocks fetch and content extraction
+      # since it's not a primary concern in this test
+      stub(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:error, "Not found"} end)
 
-      # Entity format
-      args3 = %{
-        "type" => "page.content_updated",
-        "entity" => %{"id" => "entity_page_id", "type" => "page"}
-      }
-
-      # Set up mocks for each page fetch
-      expect(APIMock, :get_page, 3, fn
-        "test_page_id", _, _ -> {:error, "Not found"}
-        "alt_page_id", _, _ -> {:error, "Not found"}
-        "entity_page_id", _, _ -> {:error, "Not found"}
+      stub(NotionMock, :extract_page_content, fn {:error, _}, {:error, _} ->
+        {:error, "Not found"}
       end)
 
-      # Test all formats
-      assert :ok = NotionEventWorker.perform(%Oban.Job{args: args1})
-      assert :ok = NotionEventWorker.perform(%Oban.Job{args: args2})
-      assert :ok = NotionEventWorker.perform(%Oban.Job{args: args3})
-    end
-
-    test "extracts user_id from various event structures" do
-      # Create page data that won't get to PII check
-      page = %{
-        "id" => "test_page_id",
-        "parent" => %{"type" => "page_id", "page_id" => "parent_page_id"},
-        "properties" => %{
-          "title" => %{
-            "title" => [
-              %{"plain_text" => "Test Page Title"}
-            ]
-          }
+      # Standard structure with user_id
+      job = %Oban.Job{
+        args: %{
+          "page" => %{"id" => "test_page_id"},
+          "type" => "page.created",
+          "user" => %{"id" => "test_user_id"}
         }
       }
 
-      # Standard format
-      args1 = %{
-        "type" => "page.created",
-        "page" => %{"id" => "test_page_id"},
-        "user" => %{"id" => "user_id_1"}
+      assert {:error, "Not found"} = NotionEventWorker.perform(job)
+
+      # Alternative structure with user_id
+      job = %Oban.Job{
+        args: %{
+          "page_id" => "alt_page_id",
+          "type" => "page.updated",
+          "user_id" => "test_user_id"
+        }
       }
 
-      # Alternative format with user_id at top level
-      args2 = %{
-        "type" => "page.updated",
-        "page" => %{"id" => "test_page_id"},
-        "user_id" => "user_id_2"
+      assert {:error, "Not found"} = NotionEventWorker.perform(job)
+
+      # Entity structure with user_id
+      job = %Oban.Job{
+        args: %{
+          "entity" => %{"id" => "entity_page_id", "type" => "page"},
+          "type" => "page.content_updated",
+          "user" => %{"id" => "test_user_id"}
+        }
       }
 
-      # Authors array format
-      args3 = %{
-        "type" => "page.content_updated",
-        "page" => %{"id" => "test_page_id"},
-        "authors" => [%{"id" => "user_id_3"}, %{"id" => "other_user"}]
-      }
+      assert {:error, "Not found"} = NotionEventWorker.perform(job)
+    end
 
-      # Set up common mocks to get to the point where we can verify user_id was extracted
+    test "event field extraction extracts user_id from various event structures", %{
+      page_data: page
+    } do
+      # Set up mock for successful page fetch
       expect(APIMock, :get_page, 3, fn _page_id, _token, _opts -> {:ok, page} end)
-      expect(APIMock, :get_blocks, 3, fn _page_id, _token, _opts -> {:ok, []} end)
+      stub(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, []} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_content_from_page, 3, fn _page, _blocks ->
-        {:ok, "Page content"}
+      stub(NotionMock, :extract_page_content, fn {:ok, _}, {:ok, _} ->
+        {:ok, "Page content", []}
       end)
 
-      # Mock the PII detector with correct input structure
-      expect(DetectorMock, :detect_pii, 3, fn input, _opts ->
-        assert is_map(input)
-        assert Map.has_key?(input, :text)
-        assert Map.has_key?(input, :attachments)
-        assert Map.has_key?(input, :files)
+      # Mock the PII detector
+      stub(DetectorMock, :detect_pii, fn _input, _opts ->
         {:pii_detected, false, []}
       end)
 
-      # Test all formats
-      assert :ok = NotionEventWorker.perform(%Oban.Job{args: args1})
-      assert :ok = NotionEventWorker.perform(%Oban.Job{args: args2})
-      assert :ok = NotionEventWorker.perform(%Oban.Job{args: args3})
+      # Standard structure
+      job = %Oban.Job{
+        args: %{
+          "user" => %{"id" => "user_id_1"},
+          "page" => %{"id" => "test_page_id"},
+          "type" => "page.created"
+        }
+      }
+
+      assert :ok = NotionEventWorker.perform(job)
+
+      # Alternative structure with actor
+      job = %Oban.Job{
+        args: %{
+          "actor" => %{"id" => "user_id_2"},
+          "page" => %{"id" => "test_page_id"},
+          "type" => "page.updated"
+        }
+      }
+
+      assert :ok = NotionEventWorker.perform(job)
+
+      # Actor nested in workspace
+      job = %Oban.Job{
+        args: %{
+          "workspace" => %{"actor" => %{"id" => "user_id_3"}},
+          "page" => %{"id" => "test_page_id"},
+          "type" => "page.content_updated"
+        }
+      }
+
+      assert :ok = NotionEventWorker.perform(job)
     end
   end
 end

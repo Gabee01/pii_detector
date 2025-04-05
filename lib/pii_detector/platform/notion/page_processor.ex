@@ -4,13 +4,15 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
 
   This module is responsible for the processing logic of Notion pages, including:
   - Fetching page content
-  - Detecting PII in content
+  - Detecting PII in content and files
   - Handling appropriate actions when PII is found
 
   It separates the processing logic from the event handling of the worker.
   """
 
   require Logger
+
+  alias PIIDetector.Platform.Notion.FileAdapter
 
   # Default implementations to use when not overridden
   @default_detector PIIDetector.Detector
@@ -133,8 +135,9 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
     process_child_pages(blocks_result, page_id, user_id)
 
     # Extract content and detect PII
-    with {:ok, content} <- extract_page_content(page_result, blocks_result),
-         {:ok, pii_result} <- detect_pii_in_content(content) do
+    with {:ok, content, files} <-
+           notion_module().extract_page_content(page_result, blocks_result),
+         {:ok, pii_result} <- detect_pii_in_content(content, files) do
       # Handle PII result
       handle_pii_result(pii_result, page_id, user_id, is_workspace_page)
     else
@@ -179,54 +182,6 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
     end
   end
 
-  # Extract content from page and blocks
-  defp extract_page_content(page_result, blocks_result) do
-    case {page_result, blocks_result} do
-      {{:ok, page}, {:ok, blocks}} ->
-        # Get nested blocks for any blocks with children
-        blocks_with_nested = fetch_nested_blocks(blocks)
-        notion_module().extract_content_from_page(page, blocks_with_nested)
-
-      {{:error, _reason} = error, _} -> error
-      {_, {:error, _reason} = error} -> error
-    end
-  end
-
-  # Recursively fetch nested blocks for blocks with children
-  defp fetch_nested_blocks(blocks) do
-    Logger.debug("Fetching nested blocks from #{length(blocks)} blocks")
-
-    Enum.reduce(blocks, [], fn block, acc ->
-      # Process this block
-      current_block =
-        if block["has_children"] == true && block["type"] != "child_page" do
-          # Fetch children blocks
-          Logger.debug("Fetching children blocks for block id: #{block["id"]} of type: #{block["type"]}")
-          case notion_api().get_blocks(block["id"], nil, []) do
-            {:ok, child_blocks} ->
-              Logger.debug("Found #{length(child_blocks)} child blocks for block id: #{block["id"]}")
-              # Recursively fetch nested blocks of children
-              nested_child_blocks = fetch_nested_blocks(child_blocks)
-              # Return this block with its nested blocks
-              Map.put(block, "children", nested_child_blocks)
-            {:error, reason} ->
-              Logger.warning("Failed to fetch child blocks for block id: #{block["id"]}, reason: #{inspect(reason)}")
-              # On error, keep the original block
-              block
-            unexpected ->
-              Logger.warning("Unexpected response when fetching child blocks: #{inspect(unexpected)}")
-              block
-          end
-        else
-          block
-        end
-
-      # Add the processed block to the accumulator
-      [current_block | acc]
-    end)
-    |> Enum.reverse()
-  end
-
   # Helper function to extract child page IDs from blocks
   defp get_child_pages_from_blocks(blocks) do
     blocks
@@ -238,19 +193,37 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
     |> Enum.map(fn block -> block["id"] end)
   end
 
-  # Detect PII in the extracted content
-  defp detect_pii_in_content(content) do
+  # Process files for PII detection
+  defp process_files(files) do
+    Enum.reduce(files, [], fn file, acc ->
+      case FileAdapter.process_file(file) do
+        {:ok, processed_file} ->
+          [processed_file | acc]
+
+        {:error, reason} ->
+          Logger.warning("Failed to process file: #{inspect(reason)}")
+          acc
+      end
+    end)
+  end
+
+  # Detect PII in the extracted content and files
+  defp detect_pii_in_content(content, files) do
     # Log content sample for debugging
     content_preview =
       if String.length(content) > 100, do: String.slice(content, 0, 100) <> "...", else: content
 
     Logger.debug("Content preview: #{content_preview}")
+    Logger.debug("Processing #{length(files)} files for PII detection")
+
+    # Process files
+    processed_files = process_files(files)
 
     # Prepare input for detector
     detector_input = %{
       text: content,
       attachments: [],
-      files: []
+      files: processed_files
     }
 
     Logger.debug("Sending to detector with input structure: #{inspect(detector_input)}")

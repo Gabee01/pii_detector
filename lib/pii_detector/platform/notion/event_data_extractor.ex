@@ -66,6 +66,17 @@ defmodule PIIDetector.Platform.Notion.EventDataExtractor do
     user_id
   end
 
+  def get_user_id_from_event(%{"actor" => %{"id" => user_id}}) when is_binary(user_id) do
+    Logger.debug("Extracted user_id from actor.id: #{user_id}")
+    user_id
+  end
+
+  def get_user_id_from_event(%{"workspace" => %{"actor" => %{"id" => user_id}}})
+      when is_binary(user_id) do
+    Logger.debug("Extracted user_id from workspace.actor.id: #{user_id}")
+    user_id
+  end
+
   def get_user_id_from_event(event) do
     Logger.warning("Could not extract user_id from event: #{inspect(event)}")
     nil

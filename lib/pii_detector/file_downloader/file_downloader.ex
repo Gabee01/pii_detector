@@ -136,6 +136,26 @@ defmodule PIIDetector.FileDownloader do
 
   # Private helper functions
 
+  defp download_file_with_module(%{"url_private" => url, "token" => token, "headers" => custom_headers} = _file, req_module)
+       when is_function(req_module) and is_list(custom_headers) do
+    # Log the URL we're attempting to download
+    Logger.debug("Downloading file from: #{url} with custom headers")
+
+    case req_module.(url, headers: custom_headers) do
+      {:ok, %{status: 200, body: body}} ->
+        validate_downloaded_content(body)
+
+      {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
+        handle_redirect(headers, token, req_module, custom_headers)
+
+      {:ok, %{status: status}} ->
+        {:error, "Failed to download file, status: #{status}"}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
   defp download_file_with_module(%{"url_private" => url, "token" => token} = _file, req_module)
        when is_function(req_module) do
     # Use Req to download file with Slack token for authentication
@@ -152,6 +172,26 @@ defmodule PIIDetector.FileDownloader do
 
       {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
         handle_redirect(headers, token, req_module)
+
+      {:ok, %{status: status}} ->
+        {:error, "Failed to download file, status: #{status}"}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  defp download_file_with_module(%{"url_private" => url, "token" => token, "headers" => custom_headers} = _file, req_module)
+       when is_list(custom_headers) do
+    # Log the URL we're attempting to download
+    Logger.debug("Downloading file from: #{url} with custom headers")
+
+    case req_module.get(url, headers: custom_headers) do
+      {:ok, %{status: 200, body: body}} ->
+        validate_downloaded_content(body)
+
+      {:ok, %{status: status, headers: headers}} when status >= 300 and status < 400 ->
+        handle_redirect(headers, token, req_module, custom_headers)
 
       {:ok, %{status: status}} ->
         {:error, "Failed to download file, status: #{status}"}
@@ -200,7 +240,7 @@ defmodule PIIDetector.FileDownloader do
     {:error, "Invalid file object, missing url_private"}
   end
 
-  defp handle_redirect(headers, token, req_module) do
+  defp handle_redirect(headers, token, req_module, custom_headers \\ nil) do
     # Get the location header
     location =
       Enum.find_value(headers, fn {key, value} ->
@@ -209,7 +249,12 @@ defmodule PIIDetector.FileDownloader do
 
     if location do
       Logger.debug("Following redirect to: #{location}")
-      download_file_with_module(%{"url_private" => location, "token" => token}, req_module)
+      file_info = %{"url_private" => location, "token" => token}
+
+      # Add custom headers if they were provided
+      file_info = if custom_headers, do: Map.put(file_info, "headers", custom_headers), else: file_info
+
+      download_file_with_module(file_info, req_module)
     else
       {:error, "Redirect without location header"}
     end
