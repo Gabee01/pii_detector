@@ -9,6 +9,16 @@ defmodule PIIDetector.Platform.Notion do
   alias PIIDetector.Platform.Notion.API
   alias PIIDetector.Platform.Slack
 
+  # Get the Notion API module (allows for test mocking)
+  defp notion_api do
+    Application.get_env(:pii_detector, :notion_api_module, API)
+  end
+
+  # Get the Slack module (allows for test mocking)
+  defp slack_module do
+    Application.get_env(:pii_detector, :slack_module, Slack)
+  end
+
   @impl true
   def extract_content_from_page(page_data, blocks) do
     try do
@@ -65,7 +75,7 @@ defmodule PIIDetector.Platform.Notion do
 
   @impl true
   def archive_content(content_id) do
-    case API.archive_page(content_id, nil) do
+    case notion_api().archive_page(content_id, nil, []) do
       {:ok, _result} = success ->
         Logger.info("Successfully archived Notion content: #{content_id}")
         success
@@ -85,7 +95,7 @@ defmodule PIIDetector.Platform.Notion do
         message = format_notification_message(content, detected_pii)
 
         # Send notification via Slack
-        case Slack.notify_user(slack_user_id, message, %{}) do
+        case slack_module().notify_user(slack_user_id, message, %{}) do
           {:ok, _} = success ->
             Logger.info("Successfully notified user about PII in Notion content: #{user_id}")
             success

@@ -7,7 +7,7 @@ defmodule PIIDetector.Platform.Notion.API do
   require Logger
 
   @impl true
-  def get_page(page_id, token \\ nil) do
+  def get_page(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
     url = "#{config()[:base_url]}/pages/#{page_id}"
 
@@ -17,7 +17,11 @@ defmodule PIIDetector.Platform.Notion.API do
       {"Content-Type", "application/json"}
     ]
 
-    case Req.get(url, headers: headers) do
+    # Merge default options with any provided options
+    req_options = Keyword.merge(req_options(), opts)
+    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+
+    case Req.get(url, [headers: headers] ++ req_options) do
       {:ok, %{status: 200, body: body}} ->
         Logger.info("Successfully fetched Notion page: #{page_id}")
         {:ok, body}
@@ -33,7 +37,7 @@ defmodule PIIDetector.Platform.Notion.API do
   end
 
   @impl true
-  def get_blocks(page_id, token \\ nil) do
+  def get_blocks(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
     url = "#{config()[:base_url]}/blocks/#{page_id}/children"
 
@@ -43,7 +47,11 @@ defmodule PIIDetector.Platform.Notion.API do
       {"Content-Type", "application/json"}
     ]
 
-    case Req.get(url, headers: headers) do
+    # Merge default options with any provided options
+    req_options = Keyword.merge(req_options(), opts)
+    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+
+    case Req.get(url, [headers: headers] ++ req_options) do
       {:ok, %{status: 200, body: %{"results" => results}}} ->
         Logger.info("Successfully fetched blocks for Notion page: #{page_id}")
         {:ok, results}
@@ -59,7 +67,7 @@ defmodule PIIDetector.Platform.Notion.API do
   end
 
   @impl true
-  def get_database_entries(database_id, token \\ nil) do
+  def get_database_entries(database_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
     url = "#{config()[:base_url]}/databases/#{database_id}/query"
 
@@ -69,7 +77,11 @@ defmodule PIIDetector.Platform.Notion.API do
       {"Content-Type", "application/json"}
     ]
 
-    case Req.post(url, headers: headers, json: %{}) do
+    # Merge default options with any provided options
+    req_options = Keyword.merge(req_options(), opts)
+    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+
+    case Req.post(url, [headers: headers, json: %{}] ++ req_options) do
       {:ok, %{status: 200, body: %{"results" => results}}} ->
         Logger.info("Successfully fetched database entries for Notion database: #{database_id}")
         {:ok, results}
@@ -85,7 +97,7 @@ defmodule PIIDetector.Platform.Notion.API do
   end
 
   @impl true
-  def archive_page(page_id, token \\ nil) do
+  def archive_page(page_id, token \\ nil, opts \\ []) do
     token = token || config()[:api_token]
     url = "#{config()[:base_url]}/pages/#{page_id}"
 
@@ -99,7 +111,11 @@ defmodule PIIDetector.Platform.Notion.API do
       "archived" => true
     }
 
-    case Req.patch(url, headers: headers, json: payload) do
+    # Merge default options with any provided options
+    req_options = Keyword.merge(req_options(), opts)
+    Logger.debug("Making Notion API request to #{url} with options: #{inspect(req_options)}")
+
+    case Req.patch(url, [headers: headers, json: payload] ++ req_options) do
       {:ok, %{status: 200, body: body}} ->
         Logger.info("Successfully archived Notion page: #{page_id}")
         {:ok, body}
@@ -115,12 +131,16 @@ defmodule PIIDetector.Platform.Notion.API do
   end
 
   @impl true
-  def archive_database_entry(page_id, token \\ nil) do
+  def archive_database_entry(page_id, token \\ nil, opts \\ []) do
     # Database entries in Notion are just pages, so we can reuse the archive_page function
-    archive_page(page_id, token)
+    archive_page(page_id, token, opts)
   end
 
   defp config do
     Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
+  end
+
+  defp req_options do
+    Application.get_env(:pii_detector, :req_options, [])
   end
 end

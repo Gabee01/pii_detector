@@ -27,12 +27,12 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:ok, %{}}
       end)
 
-      # Then mock the API responses
-      expect(APIMock, :get_page, fn "test_page_id", _token ->
+      # Then mock the API responses with the updated signature
+      expect(APIMock, :get_page, fn "test_page_id", _token, _opts ->
         {:ok, %{"properties" => %{"title" => %{"title" => [%{"plain_text" => "Test Page"}]}}}}
       end)
 
-      expect(APIMock, :get_blocks, fn "test_page_id", _token ->
+      expect(APIMock, :get_blocks, fn "test_page_id", _token, _opts ->
         {:ok, [
           %{
             "type" => "paragraph",
@@ -67,12 +67,12 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:ok, "Test content"}
       end)
 
-      # Mock the Notion API responses
-      expect(APIMock, :get_page, fn "test_page_id", _token ->
+      # Mock the Notion API responses with the updated signature
+      expect(APIMock, :get_page, fn "test_page_id", _token, _opts ->
         {:ok, %{"properties" => %{"title" => %{"title" => [%{"plain_text" => "Test Page"}]}}}}
       end)
 
-      expect(APIMock, :get_blocks, fn "test_page_id", _token ->
+      expect(APIMock, :get_blocks, fn "test_page_id", _token, _opts ->
         {:ok, [
           %{
             "type" => "paragraph",
@@ -107,8 +107,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         {:ok, "Test database content"}
       end)
 
-      # Mock the Notion API responses
-      expect(APIMock, :get_database_entries, fn "test_db_id", _token ->
+      # Mock the Notion API responses with the updated signature
+      expect(APIMock, :get_database_entries, fn "test_db_id", _token, _opts ->
         {:ok, [
           %{
             "properties" => %{
@@ -141,8 +141,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
     end
 
     test "handles API errors gracefully" do
-      # Mock API error
-      expect(APIMock, :get_page, fn "test_page_id", _token ->
+      # Mock API error with the updated signature
+      expect(APIMock, :get_page, fn "test_page_id", _token, _opts ->
         {:error, "API error: 404"}
       end)
 

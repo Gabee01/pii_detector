@@ -55,8 +55,8 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
   defp process_page_creation(page_id, user_id) do
     # Get page content
-    with {:ok, page} <- notion_api().get_page(page_id, nil),
-         {:ok, blocks} <- notion_api().get_blocks(page_id, nil),
+    with {:ok, page} <- notion_api().get_page(page_id, nil, []),
+         {:ok, blocks} <- notion_api().get_blocks(page_id, nil, []),
          {:ok, content} <- notion_module().extract_content_from_page(page, blocks) do
       # Check for PII
       detect_and_handle_pii(page_id, user_id, content)
@@ -78,7 +78,7 @@ defmodule PIIDetector.Workers.Event.NotionEventWorker do
 
   defp process_database_edit(database_id, user_id) do
     # Get database entries
-    with {:ok, entries} <- notion_api().get_database_entries(database_id, nil),
+    with {:ok, entries} <- notion_api().get_database_entries(database_id, nil, []),
          {:ok, content} <- notion_module().extract_content_from_database(entries) do
       # Check for PII in the database content
       pii_result = detector().detect_pii(content, %{})
