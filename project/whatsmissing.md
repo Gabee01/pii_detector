@@ -1,16 +1,5 @@
-Things to finish/try before delivery:
+Things to try before delivery:
 - [ ] Find user email on slack and notify notion deletion
-- [x] support Notion database detection
-- [ ] Files support (Image and PDF at least)
-- [ ] Fly.io envs and production tests
-  - [ ] Test slack message with text PII is deleted and user is notified 
-  - [ ] Test slack thread message with text PII is deleted and user is notified 
-  - [ ] Test slack message with image PII is deleted and user is notified 
-  - [ ] Test slack thread message with image PII is deleted and user is notified 
-  - [ ] Test notion subpage with text PII is deleted and user is notified 
-  - [ ] Test notion subpage with sub block text PII is deleted and user is notified 
-  - [ ] Test notion subpage with image PII is deleted and user is notified 
-  - [ ] Test notion subpage with sub block image PII is deleted and user is notified 
 - [ ] Try to update top-level pages to remove PII
 
 Nice to have:
