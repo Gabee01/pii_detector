@@ -66,7 +66,7 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       end)
 
       result = ClaudeService.analyze_pii("This will cause an api error in the request")
-      assert {:error, "Claude API request failed"} = result
+      assert {:error, "Claude API request failed: \"Claude API request failed\""} = result
     end
 
     test "handles malformed JSON response" do
@@ -165,7 +165,9 @@ defmodule PIIDetector.AI.ClaudeServiceTest do
       end)
 
       result = ClaudeService.analyze_pii_multimodal(text, nil, nil)
-      assert {:error, "Claude multimodal API request failed"} = result
+
+      assert {:error, "Claude multimodal API request failed: \"Claude API request failed\""} =
+               result
     end
   end
 

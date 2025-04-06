@@ -50,7 +50,11 @@ defmodule PIIDetector.AI.ClaudeService do
     Logger.debug("Initializing Anthropic client for text-only analysis")
 
     # Log for debugging but mask the actual API key value
-    masked_key = if api_key, do: String.slice(api_key, 0, 4) <> "..." <> String.slice(api_key, -4, 4), else: "nil"
+    masked_key =
+      if api_key,
+        do: String.slice(api_key, 0, 4) <> "..." <> String.slice(api_key, -4, 4),
+        else: "nil"
+
     Logger.debug("Using API key (masked): #{masked_key}")
 
     client = anthropic_client().init(api_key)
@@ -69,6 +73,7 @@ defmodule PIIDetector.AI.ClaudeService do
 
     # Send request to Claude through Anthropic client
     Logger.debug("Sending request to Claude API")
+
     request_opts = [
       model: model,
       messages: messages,
@@ -77,7 +82,9 @@ defmodule PIIDetector.AI.ClaudeService do
       max_tokens: 1024
     ]
 
-    Logger.debug("Request options: #{inspect(%{model: model, temperature: 0.1, max_tokens: 1024})}")
+    Logger.debug(
+      "Request options: #{inspect(%{model: model, temperature: 0.1, max_tokens: 1024})}"
+    )
 
     case anthropic_client().chat(client, request_opts) do
       {:ok, response} ->
@@ -93,7 +100,7 @@ defmodule PIIDetector.AI.ClaudeService do
         Logger.error("Claude API request context",
           model: model,
           text_length: String.length(text),
-          error_type: (if is_map(reason), do: Map.get(reason, :reason, "unknown"), else: "unknown")
+          error_type: if(is_map(reason), do: Map.get(reason, :reason, "unknown"), else: "unknown")
         )
 
         {:error, "Claude API request failed: #{error_details}"}
@@ -138,12 +145,28 @@ defmodule PIIDetector.AI.ClaudeService do
   """
   @impl true
   def analyze_pii_multimodal(text, image_data, pdf_data) do
+    # Initialize client and prepare request data
+    {client, file_data, file_type} = prepare_multimodal_request(image_data, pdf_data)
+
+    # Build content and create request options
+    {_messages, model, request_opts} = build_multimodal_request(text, file_data, file_type)
+
+    # Send request to Claude API and handle response
+    send_multimodal_request(client, request_opts, model, text, file_type)
+  end
+
+  # Prepares the client and file data for multimodal request
+  defp prepare_multimodal_request(image_data, pdf_data) do
     # Initialize Anthropic client with API key
     api_key = get_api_key()
     Logger.debug("Initializing Anthropic client for multimodal analysis")
 
     # Log for debugging but mask the actual API key value
-    masked_key = if api_key, do: String.slice(api_key, 0, 4) <> "..." <> String.slice(api_key, -4, 4), else: "nil"
+    masked_key =
+      if api_key,
+        do: String.slice(api_key, 0, 4) <> "..." <> String.slice(api_key, -4, 4),
+        else: "nil"
+
     Logger.debug("Using API key (masked): #{masked_key}")
 
     client = anthropic_client().init(api_key)
@@ -156,6 +179,19 @@ defmodule PIIDetector.AI.ClaudeService do
         {img, _} -> img
       end
 
+    # Determine file type for logging
+    file_type =
+      cond do
+        image_data != nil -> "image"
+        pdf_data != nil -> "pdf"
+        true -> "none"
+      end
+
+    {client, file_data, file_type}
+  end
+
+  # Builds the request options for multimodal API
+  defp build_multimodal_request(text, file_data, file_type) do
     # Build content array with text and file data for multimodal request
     content = build_multimodal_content(text, file_data)
 
@@ -171,8 +207,7 @@ defmodule PIIDetector.AI.ClaudeService do
     model = get_model_name()
     Logger.info("Using Claude model: #{model} for multimodal analysis")
 
-    # Send request to Claude through Anthropic client
-    Logger.debug("Sending multimodal request to Claude API")
+    # Create request options
     request_opts = [
       model: model,
       messages: messages,
@@ -181,13 +216,16 @@ defmodule PIIDetector.AI.ClaudeService do
       max_tokens: 1024
     ]
 
-    file_type = cond do
-      image_data != nil -> "image"
-      pdf_data != nil -> "pdf"
-      true -> "none"
-    end
+    Logger.debug(
+      "Request options: #{inspect(%{model: model, temperature: 0.1, max_tokens: 1024, file_type: file_type})}"
+    )
 
-    Logger.debug("Request options: #{inspect(%{model: model, temperature: 0.1, max_tokens: 1024, file_type: file_type})}")
+    {messages, model, request_opts}
+  end
+
+  # Sends the request to Claude and handles the response
+  defp send_multimodal_request(client, request_opts, model, text, file_type) do
+    Logger.debug("Sending multimodal request to Claude API")
 
     case anthropic_client().chat(client, request_opts) do
       {:ok, response} ->
@@ -204,7 +242,7 @@ defmodule PIIDetector.AI.ClaudeService do
           model: model,
           text_length: String.length(text),
           file_type: file_type,
-          error_type: (if is_map(reason), do: Map.get(reason, :reason, "unknown"), else: "unknown")
+          error_type: if(is_map(reason), do: Map.get(reason, :reason, "unknown"), else: "unknown")
         )
 
         {:error, "Claude multimodal API request failed: #{error_details}"}

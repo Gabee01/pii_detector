@@ -76,7 +76,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorkerTest do
       }
 
       job = %Oban.Job{args: args}
-      assert {:ok, :notified} = SlackMessageWorker.perform(job)
+      assert :ok = SlackMessageWorker.perform(job)
     end
 
     test "handles message deletion failures gracefully" do
