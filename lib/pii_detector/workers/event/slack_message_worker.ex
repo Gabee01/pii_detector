@@ -112,7 +112,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
   # Process files to adapt them for the file service
   defp process_files(files, token) do
     Enum.map(files, fn file ->
-      case file_adapter().process_file(file, [token: token]) do
+      case file_adapter().process_file(file, token: token) do
         {:ok, processed_file} ->
           processed_file
 
@@ -120,6 +120,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
           Logger.error("Failed to process Slack file: #{inspect(reason)}",
             event_type: "file_processing_failed"
           )
+
           nil
       end
     end)

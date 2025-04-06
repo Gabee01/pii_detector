@@ -151,42 +151,60 @@ defmodule PIIDetector.Detector.ContentProcessor do
 
   defp process_any_file(file) do
     file_name = Map.get(file, "name") || Map.get(file, :name) || "unnamed"
-
     Logger.info("Processing file for multimodal analysis: #{inspect(file_name)}")
 
-    # Check if the file has already been adapted
-    if Map.has_key?(file, "url") && Map.has_key?(file, "headers") do
-      # File is already in the correct format for processing
-      process_with_file_service(file)
-    else
-      # Log detailed info about the file structure to help debug
-      keys = Map.keys(file)
-      Logger.debug("File keys: #{inspect(keys)}")
+    # Log detailed info about the file structure to help debug
+    keys = Map.keys(file)
+    Logger.debug("File keys: #{inspect(keys)}")
 
-      # Check if this is a Slack file that needs adaptation
-      if Enum.any?(["url_private", "url_private_download", "permalink"], &Map.has_key?(file, &1)) do
-        # This looks like a Slack file, try to adapt it using the adapter's prepare_file
-        _adapter = Application.get_env(:pii_detector, :slack_file_adapter, PIIDetector.Platform.Slack.FileAdapter)
-
-        # Get available URL
-        url = file["url_private"] || file["url_private_download"] || file["permalink"]
-
-        # Create pre-adapted file for FileService
-        adapted_file = %{
-          "url" => url,
-          "mimetype" => file["mimetype"],
-          "name" => file["name"] || "unnamed",
-          "headers" => [
-            {"Authorization", "Bearer #{file["token"] || ""}"}
-          ]
-        }
-
-        process_with_file_service(adapted_file)
-      else
-        # Attempt direct processing as a last resort
+    cond do
+      # Case 1: File is already properly formatted for the file service
+      file_ready_for_processing?(file) ->
         process_with_file_service(file)
-      end
+
+      # Case 2: This appears to be a Slack file needing adaptation
+      slack_file?(file) ->
+        adapt_slack_file(file)
+
+      # Case 3: Try direct processing as last resort
+      true ->
+        process_with_file_service(file)
     end
+  end
+
+  # Check if file is already prepared for file service
+  defp file_ready_for_processing?(file) do
+    Map.has_key?(file, "url") && Map.has_key?(file, "headers")
+  end
+
+  # Check if this is a Slack file
+  defp slack_file?(file) do
+    Enum.any?(["url_private", "url_private_download", "permalink"], &Map.has_key?(file, &1))
+  end
+
+  # Adapt a Slack file for processing
+  defp adapt_slack_file(file) do
+    _adapter =
+      Application.get_env(
+        :pii_detector,
+        :slack_file_adapter,
+        PIIDetector.Platform.Slack.FileAdapter
+      )
+
+    # Get available URL
+    url = file["url_private"] || file["url_private_download"] || file["permalink"]
+
+    # Create pre-adapted file for FileService
+    adapted_file = %{
+      "url" => url,
+      "mimetype" => file["mimetype"],
+      "name" => file["name"] || "unnamed",
+      "headers" => [
+        {"Authorization", "Bearer #{file["token"] || ""}"}
+      ]
+    }
+
+    process_with_file_service(adapted_file)
   end
 
   defp process_with_file_service(file) do
