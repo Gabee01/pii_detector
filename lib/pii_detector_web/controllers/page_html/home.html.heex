@@ -13,13 +13,26 @@
       <div class="space-y-4">
         <div class="flex items-start">
           <div class="bg-blue-100 p-2 rounded-full mr-4">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6 text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <div>
             <h3 class="font-semibold text-gray-800">Monitoring</h3>
-            <p class="text-gray-600">The app constantly monitors your configured Slack channels and Notion workspaces for new content.</p>
+            <p class="text-gray-600">
+              The app constantly monitors your configured Slack channels and Notion workspaces for new content.
+            </p>
             <ul class="mt-2 text-sm text-gray-600 list-disc list-inside">
               <li>Slack: Add the PII Detector bot to your channel</li>
               <li>Notion: Connection already configured in linked test page</li>
@@ -29,84 +42,131 @@
 
         <div class="flex items-start">
           <div class="bg-blue-100 p-2 rounded-full mr-4">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6 text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
             </svg>
           </div>
           <div>
             <h3 class="font-semibold text-gray-800">AI-Powered Detection</h3>
-            <p class="text-gray-600">Uses advanced AI to analyze content for personally identifiable information (PII).</p>
+            <p class="text-gray-600">
+              Uses advanced AI to analyze content for personally identifiable information (PII).
+            </p>
           </div>
         </div>
 
         <div class="flex items-start">
           <div class="bg-blue-100 p-2 rounded-full mr-4">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6 text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </div>
           <div>
             <h3 class="font-semibold text-gray-800">Automatic Removal</h3>
-            <p class="text-gray-600">When PII is detected, the content is immediately removed and the author is notified via direct message.</p>
+            <p class="text-gray-600">
+              When PII is detected, the content is immediately removed and the author is notified via direct message.
+            </p>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Testing Instructions Section -->
+    
+<!-- Testing Instructions Section -->
     <div class="bg-white p-6 rounded-lg shadow-md">
       <h2 class="text-2xl font-bold text-blue-600 mb-4">Testing the App</h2>
       <p class="text-gray-600 mb-4">Follow these steps to verify the PII detector is working:</p>
-      
+
       <ol class="list-decimal list-inside space-y-2 text-gray-700">
         <li>Join our test Slack workspace and Notion workspace using the links below</li>
-        <li>Post a message containing PII (like SSNs, credit card numbers, etc.) in the "pii-free-channel" Slack channel</li>
+        <li>
+          Post a message containing PII (like SSNs, credit card numbers, etc.) in the "pii-free-channel" Slack channel
+        </li>
         <li>Create a page in the "JUMP PII PROD" Notion database containing PII</li>
         <li>Observe that both are automatically removed and you receive a direct message</li>
         <li>Try posting content without PII - these should remain untouched</li>
       </ol>
     </div>
   </div>
-
-  <!-- Access Links Section -->
+  
+<!-- Access Links Section -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
     <div class="bg-blue-50 p-6 rounded-lg border border-blue-100">
       <div class="flex items-center mb-4">
         <svg viewBox="0 0 24 24" class="h-8 w-8 text-blue-600 mr-3" fill="currentColor">
-          <path d="M6.25 13.75a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm11.5-2.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 14.25c-1.079 0-2.09.328-2.926.947a6.98 6.98 0 0 1 2.17 2.164 4.5 4.5 0 0 0 1.512-.611A4.48 4.48 0 0 1 12 14.25zm0-4.5c-.166 0-.33.011-.492.032a6.945 6.945 0 0 1 0 4.936c.162.02.326.032.492.032 1.062 0 2.057-.279 2.917-.769a6.948 6.948 0 0 1 0-3.431A4.48 4.48 0 0 0 12 9.75zm-2.667 7.336a4.5 4.5 0 0 0-1.667.32 6.98 6.98 0 0 1 2.17-2.164 4.496 4.496 0 0 0-.503 1.844z"/>
+          <path d="M6.25 13.75a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm11.5-2.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 14.25c-1.079 0-2.09.328-2.926.947a6.98 6.98 0 0 1 2.17 2.164 4.5 4.5 0 0 0 1.512-.611A4.48 4.48 0 0 1 12 14.25zm0-4.5c-.166 0-.33.011-.492.032a6.945 6.945 0 0 1 0 4.936c.162.02.326.032.492.032 1.062 0 2.057-.279 2.917-.769a6.948 6.948 0 0 1 0-3.431A4.48 4.48 0 0 0 12 9.75zm-2.667 7.336a4.5 4.5 0 0 0-1.667.32 6.98 6.98 0 0 1 2.17-2.164 4.496 4.496 0 0 0-.503 1.844z" />
         </svg>
         <h3 class="text-xl font-bold text-blue-600">Slack Workspace</h3>
       </div>
-      <p class="mb-4 text-gray-700">Join our test Slack workspace to try out the PII detection:</p>
-      <a href={@slack_invite} target="_blank" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded text-center transition duration-150">
+      <p class="mb-4 text-gray-700">
+        Join our test Slack workspace to try out the PII detection:
+      </p>
+      <a
+        href={@slack_invite}
+        target="_blank"
+        class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded text-center transition duration-150"
+      >
         Join Test Slack Workspace
       </a>
-      <p class="mt-2 text-sm text-gray-500">The "pii-free-channel" is already configured for testing. Make sure to post in this channel.</p>
-      <p class="mt-2 text-sm text-gray-500 italic">To add the bot to another channel, invite "@Jump PII Detector"  to that channel.</p>
+      <p class="mt-2 text-sm text-gray-500">
+        The "pii-free-channel" is already configured for testing. Make sure to post in this channel.
+      </p>
+      <p class="mt-2 text-sm text-gray-500 italic">
+        To add the bot to another channel, invite "@Jump PII Detector"  to that channel.
+      </p>
     </div>
 
     <div class="bg-blue-50 p-6 rounded-lg border border-blue-100">
       <div class="flex items-center mb-4">
         <svg viewBox="0 0 24 24" class="h-8 w-8 text-blue-600 mr-3" fill="currentColor">
-          <path d="M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zm0 8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2zm0 8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2z"/>
+          <path d="M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zm0 8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2zm0 8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2z" />
         </svg>
         <h3 class="text-xl font-bold text-blue-600">Notion Workspace</h3>
       </div>
-      <p class="mb-4 text-gray-700">Access our test Notion workspace for PII detection testing:</p>
-      <a href={@notion_url} target="_blank" class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded text-center transition duration-150">
+      <p class="mb-4 text-gray-700">
+        Access our test Notion workspace for PII detection testing:
+      </p>
+      <a
+        href={@notion_url}
+        target="_blank"
+        class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded text-center transition duration-150"
+      >
         Open Test Notion Workspace
       </a>
-      <p class="mt-2 text-sm text-gray-500">The "JUMP PII PROD" database is already configured for testing.</p>
+      <p class="mt-2 text-sm text-gray-500">
+        The "JUMP PII PROD" database is already configured for testing.
+      </p>
       <div class="mt-2 p-2 bg-yellow-50 text-yellow-800 text-sm rounded border border-yellow-200">
-        <strong>Note:</strong> For testing, please use the database or create sub-pages as the app cannot delete workspace-level pages.
+        <strong>Note:</strong>
+        For testing, please use the database or create sub-pages as the app cannot delete workspace-level pages.
       </div>
     </div>
   </div>
-
-  <!-- Additional Information Section -->
+  
+<!-- Additional Information Section -->
   <div class="bg-white p-6 rounded-lg shadow-md mb-12">
     <h2 class="text-2xl font-bold text-blue-600 mb-4">Testing Examples</h2>
-    
+
     <div class="mb-6">
       <h3 class="text-lg font-semibold text-gray-800 mb-2">Types of PII to Test:</h3>
       <ul class="list-disc list-inside space-y-1 text-gray-700">
@@ -118,18 +178,22 @@
         <li>Full Names with Identifying Information</li>
       </ul>
     </div>
-    
+
     <div>
       <h3 class="text-lg font-semibold text-gray-800 mb-2">Testing Files:</h3>
-      <p class="text-gray-700 mb-2">Upload images or PDFs containing PII to either Slack or the Notion database to test the app's ability to detect PII in attachments. The app will analyze the content of these files and remove them if PII is detected.</p>
-      <p class="text-gray-700 italic">Try uploading a scan of a document with personal information or a screenshot containing sensitive data.</p>
+      <p class="text-gray-700 mb-2">
+        Upload images or PDFs containing PII to either Slack or the Notion database to test the app's ability to detect PII in attachments. The app will analyze the content of these files and remove them if PII is detected.
+      </p>
+      <p class="text-gray-700 italic">
+        Try uploading a scan of a document with personal information or a screenshot containing sensitive data.
+      </p>
     </div>
   </div>
-
-  <!-- Configuration Section -->
+  
+<!-- Configuration Section -->
   <div class="bg-white p-6 rounded-lg shadow-md mb-12">
     <h2 class="text-2xl font-bold text-blue-600 mb-4">Configuration Notes</h2>
-    
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
         <h3 class="text-lg font-semibold text-gray-800 mb-2">Slack Configuration</h3>
@@ -140,7 +204,7 @@
           <li>DM notifications are sent to the original message author</li>
         </ul>
       </div>
-      
+
       <div>
         <h3 class="text-lg font-semibold text-gray-800 mb-2">Notion Configuration</h3>
         <ul class="list-disc list-inside space-y-1 text-gray-700">
