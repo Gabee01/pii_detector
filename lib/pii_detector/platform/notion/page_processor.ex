@@ -179,24 +179,143 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
 
   # Handle the PII detection result
   defp handle_pii_result({:pii_detected, true, categories}, page_id, user_id, is_workspace_page) do
-    # PII detected, archive the page (skip if it's a workspace-level page)
+    # Log PII detection
     Logger.warning("PII detected in Notion page",
       page_id: page_id,
       user_id: user_id,
       categories: categories
     )
 
-    if is_workspace_page do
-      Logger.warning("Skipping archiving for workspace-level page #{page_id}")
-      :ok
-    else
-      archive_page(page_id)
-    end
+    # Get page content before archive (for notification)
+    {page_result, blocks_result} = fetch_page_content(page_id)
+    extracted_content = extract_content(page_result, blocks_result)
+
+    # Archive the page if appropriate
+    archive_result = handle_page_archival(page_id, is_workspace_page)
+
+    # Try to notify the author
+    page_result
+    |> extract_author_email()
+    |> notify_author(extracted_content)
+
+    # Return the archive result (existing behavior)
+    archive_result
   end
 
   defp handle_pii_result({:pii_detected, false, _}, page_id, _user_id, _is_workspace_page) do
     Logger.info("No PII detected in Notion page", page_id: page_id)
     :ok
+  end
+
+  # Fetch page content for notification before deletion
+  defp fetch_page_content(page_id) do
+    page_result = notion_api().get_page(page_id, nil, [])
+    blocks_result = notion_api().get_blocks(page_id, nil, [])
+    {page_result, blocks_result}
+  end
+
+  # Extract page content for notification
+  defp extract_content(page_result, blocks_result) do
+    case notion_module().extract_page_content(page_result, blocks_result) do
+      {:ok, content, _files} -> content
+      _ -> "Content could not be extracted"
+    end
+  end
+
+  # Handle page archival based on page type
+  defp handle_page_archival(page_id, true = _is_workspace_page) do
+    Logger.warning("Skipping archiving for workspace-level page #{page_id}")
+    :ok
+  end
+
+  defp handle_page_archival(page_id, false = _is_workspace_page) do
+    archive_page(page_id)
+  end
+
+  # Extract author email from page data
+  defp extract_author_email({:ok, page}) do
+    # First try to get email directly from page metadata
+    created_by_email = get_in(page, ["created_by", "person", "email"])
+    edited_by_email = get_in(page, ["last_edited_by", "person", "email"])
+
+    Logger.debug(
+      "Direct email detection - Created by email: #{inspect(created_by_email)}, Edited by email: #{inspect(edited_by_email)}"
+    )
+
+    if created_by_email || edited_by_email do
+      # If we found the email directly, use it
+      created_by_email || edited_by_email
+    else
+      # Otherwise, try to fetch user details using IDs
+      created_by_id = get_in(page, ["created_by", "id"])
+      edited_by_id = get_in(page, ["last_edited_by", "id"])
+
+      Logger.debug(
+        "Attempting to fetch user details - Created by ID: #{inspect(created_by_id)}, Edited by ID: #{inspect(edited_by_id)}"
+      )
+
+      # Try created_by_id first, then fall back to edited_by_id
+      fetch_user_email(created_by_id) || fetch_user_email(edited_by_id)
+    end
+  end
+
+  defp extract_author_email(_) do
+    nil
+  end
+
+  # Helper function to fetch user email from Notion API
+  defp fetch_user_email(nil), do: nil
+
+  defp fetch_user_email(user_id) do
+    case notion_api().get_user(user_id, nil, []) do
+      {:ok, user} ->
+        # Extract email from user data if available
+        email = get_in(user, ["person", "email"])
+
+        if email do
+          Logger.info("Successfully retrieved email for user #{user_id}: #{email}")
+        else
+          Logger.warning("User retrieved but no email found for user #{user_id}")
+        end
+
+        email
+
+      {:error, reason} ->
+        Logger.warning("Failed to retrieve user details for #{user_id}: #{inspect(reason)}")
+        nil
+    end
+  end
+
+  # Notify author via Slack with page content
+  defp notify_author(nil, _content) do
+    Logger.warning("Could not find author email for notification")
+    :ok
+  end
+
+  defp notify_author(email, content) do
+    Logger.info("Found author email: #{email}, attempting to notify via Slack")
+    notify_author_via_slack(email, content)
+  end
+
+  # Send notification to author via Slack
+  defp notify_author_via_slack(email, content) do
+    case PIIDetector.Platform.Slack.API.users_lookup_by_email(email) do
+      {:ok, user} ->
+        # Format the content for Slack
+        notification_content = %{
+          text:
+            "Your Notion page was removed because it contains PII (Personally Identifiable Information). Please recreate it without including sensitive information.\n\nOriginal content:\n```\n#{content}\n```",
+          files: [],
+          attachments: []
+        }
+
+        # Send the notification
+        PIIDetector.Platform.Slack.API.notify_user(user["id"], notification_content)
+        Logger.info("Successfully sent Slack notification to author with email: #{email}")
+
+      {:error, reason} ->
+        Logger.warning("Failed to notify author via Slack: #{inspect(reason)}, email: #{email}")
+    end
   end
 
   # Archive a page that contains PII

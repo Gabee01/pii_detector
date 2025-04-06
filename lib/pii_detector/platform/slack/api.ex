@@ -136,6 +136,43 @@ defmodule PIIDetector.Platform.Slack.API do
     end
   end
 
+  @doc """
+  Looks up a Slack user by their email address.
+
+  ## Parameters
+  - email: The email address to look up
+  - token: The bot token to use for the API call (optional)
+
+  ## Returns
+  - {:ok, user} on success where user is the user data returned by Slack
+  - {:error, :user_not_found} when no user matches the email
+  - {:error, reason} on other failures
+  """
+  @impl PIIDetector.Platform.Slack.APIBehaviour
+  def users_lookup_by_email(email, token \\ nil) do
+    token = token || bot_token()
+
+    Logger.debug("Looking up Slack user by email: #{email}")
+
+    case post("users.lookupByEmail", token, %{email: email}) do
+      {:ok, %{"ok" => true, "user" => user}} ->
+        Logger.info("Successfully found Slack user for email: #{email}")
+        {:ok, user}
+
+      {:ok, %{"ok" => false, "error" => "users_not_found"}} ->
+        Logger.warning("No Slack user found for email: #{email}")
+        {:error, :user_not_found}
+
+      {:ok, %{"ok" => false, "error" => error}} ->
+        Logger.error("Error looking up Slack user by email: #{error}")
+        {:error, error}
+
+      {:error, error} ->
+        Logger.error("Server error looking up Slack user: #{inspect(error)}")
+        {:error, :server_error}
+    end
+  end
+
   # Private helper functions
 
   # Delete a message using admin token

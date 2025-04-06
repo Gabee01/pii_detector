@@ -50,4 +50,10 @@ defmodule PIIDetector.Platform.Slack.APIBehaviour do
               token :: String.t() | nil
             ) ::
               {:ok, :notified} | {:error, any()}
+
+  @doc """
+  Looks up a Slack user by their email address.
+  """
+  @callback users_lookup_by_email(email :: String.t(), token :: String.t() | nil) ::
+              {:ok, map()} | {:error, any()}
 end

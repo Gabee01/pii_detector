@@ -25,4 +25,11 @@ defmodule PIIDetector.Platform.Notion.APIBehaviour do
               opts :: Keyword.t()
             ) ::
               {:ok, map()} | {:error, any()}
+
+  @callback get_user(
+              user_id :: String.t(),
+              token :: String.t() | nil,
+              opts :: Keyword.t()
+            ) ::
+              {:ok, map()} | {:error, any()}
 end

@@ -142,6 +142,39 @@ defmodule PIIDetector.Platform.Notion.API do
     archive_page(page_id, token, opts)
   end
 
+  @impl true
+  def get_user(user_id, token \\ nil, opts \\ []) do
+    with {:ok, token} <- ensure_token(token),
+         {:ok, url, headers} <- prepare_request("/users/#{user_id}", token, opts) do
+      Logger.debug("Making Notion API request to get user: #{user_id}")
+
+      case Req.get(url, [headers: headers] ++ request_options(opts)) do
+        {:ok, %{status: 200, body: body}} ->
+          Logger.info("Successfully fetched Notion user: #{user_id}")
+          {:ok, body}
+
+        {:ok, %{status: 401, body: body}} ->
+          Logger.error("Authentication error fetching Notion user: #{inspect(body)}")
+          {:error, "Authentication failed - invalid API token"}
+
+        {:ok, %{status: 404, body: body}} ->
+          Logger.error(
+            "User not found or integration lacks access: #{user_id}, response: #{inspect(body)}"
+          )
+
+          {:error, "User not found or integration lacks access"}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.error("Error fetching Notion user: status=#{status}, body=#{inspect(body)}")
+          {:error, "API error: #{status}"}
+
+        {:error, reason} ->
+          Logger.error("Failed to connect to Notion API: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+  end
+
   # Private helper functions
 
   defp ensure_token(nil) do
