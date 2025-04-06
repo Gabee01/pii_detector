@@ -79,8 +79,8 @@ config :phoenix, :json_library, Jason
 
 # Configure Claude API for PII detection
 config :pii_detector, :claude,
-  dev_model: "claude-3-haiku-20240307",
-  prod_model: "claude-3-sonnet-20240229",
+  dev_model: "claude-3-5-haiku-20241022",
+  prod_model: "claude-3-7-sonnet-20250219",
   max_tokens: 1024,
   temperature: 0
 

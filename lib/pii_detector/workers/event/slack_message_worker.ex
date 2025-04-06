@@ -10,6 +10,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
   # Use the actual modules for normal code, but allow for injection in tests
   @detector PIIDetector.Detector
   @api_module PIIDetector.Platform.Slack.API
+  @file_adapter PIIDetector.Platform.Slack.FileAdapter
 
   # Get the actual detector module (allows for test mocking)
   defp detector do
@@ -19,6 +20,11 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
   # Get the API module (allows for test mocking)
   defp api do
     Application.get_env(:pii_detector, :slack_api_module, @api_module)
+  end
+
+  # Get the file adapter module (allows for test mocking)
+  defp file_adapter do
+    Application.get_env(:pii_detector, :slack_file_adapter_module, @file_adapter)
   end
 
   @doc """
@@ -44,7 +50,7 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
       "token" => token
     } = args
 
-    # Process files if they exist by adding token for authorization
+    # Process files if they exist by adapting them for the file service
     processed_files =
       if args["files"] && args["files"] != [] do
         process_files(args["files"], token)
@@ -103,12 +109,20 @@ defmodule PIIDetector.Workers.Event.SlackMessageWorker do
     end
   end
 
-  # Process files to ensure they have necessary authorization information
+  # Process files to adapt them for the file service
   defp process_files(files, token) do
     Enum.map(files, fn file ->
-      # Add token to file object if not already present
-      # This ensures authorization when downloading files
-      Map.put_new(file, "token", token)
+      case file_adapter().process_file(file, [token: token]) do
+        {:ok, processed_file} ->
+          processed_file
+
+        {:error, reason} ->
+          Logger.error("Failed to process Slack file: #{inspect(reason)}",
+            event_type: "file_processing_failed"
+          )
+          nil
+      end
     end)
+    |> Enum.reject(&is_nil/1)
   end
 end
