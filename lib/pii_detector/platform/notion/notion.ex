@@ -398,13 +398,30 @@ defmodule PIIDetector.Platform.Notion do
     Application.get_env(:pii_detector, :slack_module, Slack)
   end
 
-  defp extract_page_title(%{"properties" => %{"title" => title_data}}) do
-    case title_data do
-      %{"title" => rich_text_list} when is_list(rich_text_list) ->
+  defp extract_page_title(%{"properties" => properties}) do
+    # First try the standard title property
+    case properties do
+      %{"title" => %{"title" => rich_text_list}} when is_list(rich_text_list) ->
         Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
 
+      # Then try to find any property with a "title" type
       _ ->
-        nil
+        properties
+        |> Enum.find(fn {_name, property} -> property["type"] == "title" end)
+        |> case do
+          {_prop_name, %{"title" => rich_text_list}} when is_list(rich_text_list) ->
+            Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
+
+          # Finally look for specific fields like "Task name" that might contain titles
+          _ ->
+            properties
+            |> Enum.find(fn {name, _} -> name == "Task name" end)
+            |> case do
+              {_, %{"title" => rich_text_list}} when is_list(rich_text_list) ->
+                Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
+              _ -> nil
+            end
+        end
     end
   end
 
