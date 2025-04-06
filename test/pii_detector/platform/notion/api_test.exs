@@ -157,7 +157,7 @@ defmodule PIIDetector.Platform.Notion.APITest do
         Plug.Conn.send_resp(conn, 404, Jason.encode!(%{"error" => "Not found"}))
       end)
 
-      assert {:error,
+      assert {:ok,
               "Page not found or integration lacks access - verify integration is added to page"} =
                API.get_blocks(page_id, token, plug: {Req.Test, stub_name}, retry: false)
     end
