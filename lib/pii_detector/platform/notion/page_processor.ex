@@ -301,12 +301,11 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
   defp notify_author_via_slack(email, content) do
     case PIIDetector.Platform.Slack.API.users_lookup_by_email(email) do
       {:ok, user} ->
-        # Format the content for Slack
+        # Create notification with original content and notion source
         notification_content = %{
-          text:
-            "Your Notion page was removed because it contains PII (Personally Identifiable Information). Please recreate it without including sensitive information.\n\nOriginal content:\n```\n#{content}\n```",
+          text: content,
           files: [],
-          attachments: []
+          source: :notion
         }
 
         # Send the notification

@@ -8,32 +8,61 @@ defmodule PIIDetector.Platform.Slack.MessageFormatter do
   The original content is included in a quote block for easy reference.
   """
   def format_pii_notification(original_content) do
-    # Build file info text
-    file_info =
-      if original_content.files && original_content.files != [] do
-        file_names =
-          original_content.files
-          |> Enum.map_join(", ", fn file -> file["name"] || "unnamed file" end)
+    # Determine the source (Slack message or Notion page)
+    source_text =
+      case Map.get(original_content, :source) do
+        :notion -> "Notion page"
+        _ -> "message"
+      end
 
-        "\nYour message also contained files: #{file_names}"
+    # Handle original text content
+    content_text = String.trim(Map.get(original_content, :text, "") || "")
+
+    # Format multi-line content properly by adding quote prefix to each line
+    quoted_content =
+      if content_text != "" do
+        content_text
+        |> String.split("\n")
+        |> Enum.map_join("\n", fn line -> "> #{line}" end)
       else
         ""
       end
 
+    # Build file info text - simplify to just indicate attachments were present
+    files = Map.get(original_content, :files, [])
+
+    file_text =
+      if files != [] do
+        file_count = length(files)
+
+        attachment_text =
+          if file_count == 1, do: "1 attachment", else: "#{file_count} attachments"
+
+        "\n> 📎 *#{attachment_text}*"
+      else
+        ""
+      end
+
+    # Combined original content (text + files)
+    combined_content =
+      if quoted_content != "" do
+        "#{quoted_content}#{file_text}"
+      else
+        if file_text != "", do: "> *Content contained only attachments*#{file_text}", else: ""
+      end
+
     """
-    :warning: Your message was removed because it contained personal identifiable information (PII).
+    🚨 Your #{source_text} was removed because it contained personal identifiable information (PII).
 
-    Please repost your message without including sensitive information such as:
-    • Social security numbers
-    • Credit card numbers
-    • Personal addresses
-    • Full names with contact information
-    • Email addresses
+    ✉️ Please repost without including sensitive information such as:
+    • 🔢 Social security numbers
+    • 💳 Credit card numbers
+    • 🏠 Personal addresses
+    • 👤 Full names with contact information
+    • 📧 Email addresses
 
-    Here's your original message for reference:
-    ```
-    #{original_content.text}
-    ```#{file_info}
+    📝 *Original content:*
+    #{combined_content}
     """
   end
 end

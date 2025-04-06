@@ -63,7 +63,7 @@ defmodule PIIDetector.Platform.Notion.API do
             "Page not found or integration lacks access to blocks: #{page_id}, response: #{inspect(body)}"
           )
 
-          {:error,
+          {:ok,
            "Page not found or integration lacks access - verify integration is added to page"}
 
         {:ok, %{status: status, body: body}} ->
