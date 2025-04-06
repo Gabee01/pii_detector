@@ -56,7 +56,7 @@ For detailed documentation about the application's architecture and components, 
 - [Notion Integration](docs/architecture/notion_integration.md)
 - [PII Detection Process](docs/pii_detection.md)
 - [Multimodal File Processing](docs/multimodal_processing.md)
-- [Architecture](docs/architecture/README.md)
+- [Architecture](docs/README.md)
 
 ## Platform Integrations
 

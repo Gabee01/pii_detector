@@ -183,7 +183,7 @@ Notion sends a one-time verification request when setting up a webhook subscript
 
 ```json
 {
-  "verification_token": "secret_tMrlL1qK5vuQAh1b6cZGhFChZTSYJlce98V0pYn7yBl"
+  "verification_token": "secret_tMrlL1qK5vuQAh1b6cZGhFChZTSYJlce98V0pYn7yBl" # this is not valid
 }
 ```
 
