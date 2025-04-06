@@ -280,11 +280,11 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       }
 
       # Set up mocks
-      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, workspace_page} end)
-      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, blocks} end)
+      expect(APIMock, :get_page, 1, fn _page_id, _token, _opts -> {:ok, workspace_page} end)
+      expect(APIMock, :get_blocks, 1, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_page_content, 2, fn {:ok, _page}, {:ok, _blocks} ->
+      expect(NotionMock, :extract_page_content, 1, fn {:ok, _page}, {:ok, _blocks} ->
         {:ok, "Content with credit card 4111-1111-1111-1111", []}
       end)
 
