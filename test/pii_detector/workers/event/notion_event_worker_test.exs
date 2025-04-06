@@ -210,14 +210,14 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
         "user" => %{"id" => "test_user_id"}
       }
 
-      # Set up mocks - only page fetch needed since title check happens first
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page_with_pii} end)
+      # Set up mocks - expect get_page to be called twice due to Slack notification
+      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, page_with_pii} end)
 
-      # Now we also need to expect get_blocks call
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, []} end)
+      # Now we also need to expect get_blocks call twice
+      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, []} end)
 
-      # And expect extract_page_content call
-      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+      # And expect extract_page_content call twice
+      expect(NotionMock, :extract_page_content, 2, fn {:ok, _page}, {:ok, _blocks} ->
         {:ok, "Contact john.doe@example.com", []}
       end)
 
@@ -243,11 +243,11 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       }
 
       # Set up mocks
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
+      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, page} end)
+      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+      expect(NotionMock, :extract_page_content, 2, fn {:ok, _page}, {:ok, _blocks} ->
         {:ok, "Content with SSN 123-45-6789", []}
       end)
 
@@ -280,11 +280,11 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       }
 
       # Set up mocks
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, workspace_page} end)
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
+      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, workspace_page} end)
+      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+      expect(NotionMock, :extract_page_content, 2, fn {:ok, _page}, {:ok, _blocks} ->
         {:ok, "Content with credit card 4111-1111-1111-1111", []}
       end)
 
@@ -396,11 +396,11 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       blocks_data: blocks
     } do
       # Set up mocks for a successful page and blocks fetch but an archive error
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
+      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, page} end)
+      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module to return content with PII
-      expect(NotionMock, :extract_page_content, fn {:ok, _}, {:ok, _} ->
+      expect(NotionMock, :extract_page_content, 2, fn {:ok, _}, {:ok, _} ->
         {:ok, "Content with secret PII", []}
       end)
 
@@ -424,11 +424,11 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       blocks_data: blocks
     } do
       # Set up mocks for a successful page and blocks fetch
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
+      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, page} end)
+      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module to return content with PII
-      expect(NotionMock, :extract_page_content, fn {:ok, _}, {:ok, _} ->
+      expect(NotionMock, :extract_page_content, 2, fn {:ok, _}, {:ok, _} ->
         {:ok, "Content with secret PII", []}
       end)
 
@@ -457,11 +457,11 @@ defmodule PIIDetector.Workers.Event.NotionEventWorkerTest do
       }
 
       # Set up mocks
-      expect(APIMock, :get_page, fn _page_id, _token, _opts -> {:ok, page} end)
-      expect(APIMock, :get_blocks, fn _page_id, _token, _opts -> {:ok, blocks} end)
+      expect(APIMock, :get_page, 2, fn _page_id, _token, _opts -> {:ok, page} end)
+      expect(APIMock, :get_blocks, 2, fn _page_id, _token, _opts -> {:ok, blocks} end)
 
       # Mock the Notion module
-      expect(NotionMock, :extract_page_content, fn {:ok, _page}, {:ok, _blocks} ->
+      expect(NotionMock, :extract_page_content, 2, fn {:ok, _page}, {:ok, _blocks} ->
         {:ok, "Content with secret PII", []}
       end)
 

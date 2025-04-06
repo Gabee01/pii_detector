@@ -416,6 +416,122 @@ defmodule PIIDetector.Platform.Notion.APITest do
     end
   end
 
+  describe "get_user/3" do
+    setup do
+      # Setup common test data
+      %{user_id: "test_user_id"}
+    end
+
+    test "fetches user details successfully", %{user_id: user_id} do
+      user_data = %{
+        "id" => user_id,
+        "name" => "Test User",
+        "person" => %{
+          "email" => "test.user@example.com"
+        }
+      }
+
+      stub_name = :"test_stub_#{System.unique_integer()}"
+
+      Req.Test.stub(stub_name, fn conn ->
+        assert conn.request_path == "/v1/users/#{user_id}"
+        Req.Test.json(conn, user_data)
+      end)
+
+      assert {:ok, response} =
+               API.get_user(user_id, "test_token", plug: {Req.Test, stub_name}, retry: false)
+
+      assert response["id"] == user_id
+      assert get_in(response, ["person", "email"]) == "test.user@example.com"
+    end
+
+    test "handles authentication errors", %{user_id: user_id} do
+      error_response = %{
+        "object" => "error",
+        "status" => 401,
+        "code" => "unauthorized",
+        "message" => "API token is invalid."
+      }
+
+      stub_name = :"test_stub_#{System.unique_integer()}"
+
+      Req.Test.stub(stub_name, fn conn ->
+        Plug.Conn.send_resp(conn, 401, Jason.encode!(error_response))
+      end)
+
+      assert {:error, "Authentication failed - invalid API token"} =
+               API.get_user(user_id, "invalid_token", plug: {Req.Test, stub_name}, retry: false)
+    end
+
+    test "handles user not found", %{user_id: user_id} do
+      error_response = %{
+        "object" => "error",
+        "status" => 404,
+        "code" => "not_found",
+        "message" => "User not found"
+      }
+
+      stub_name = :"test_stub_#{System.unique_integer()}"
+
+      Req.Test.stub(stub_name, fn conn ->
+        Plug.Conn.send_resp(conn, 404, Jason.encode!(error_response))
+      end)
+
+      assert {:error, "User not found or integration lacks access"} =
+               API.get_user(user_id, "test_token", plug: {Req.Test, stub_name}, retry: false)
+    end
+
+    test "handles server errors", %{user_id: user_id} do
+      error_response = %{
+        "object" => "error",
+        "status" => 500,
+        "code" => "internal_server_error",
+        "message" => "Internal server error"
+      }
+
+      stub_name = :"test_stub_#{System.unique_integer()}"
+
+      Req.Test.stub(stub_name, fn conn ->
+        Plug.Conn.send_resp(conn, 500, Jason.encode!(error_response))
+      end)
+
+      assert {:error, "API error: 500"} =
+               API.get_user(user_id, "test_token", plug: {Req.Test, stub_name}, retry: false)
+    end
+
+    test "handles connection errors", %{user_id: user_id} do
+      stub_name = :"test_stub_#{System.unique_integer()}"
+
+      Req.Test.stub(stub_name, fn conn ->
+        Req.Test.transport_error(conn, :timeout)
+      end)
+
+      assert {:error, %Req.TransportError{}} =
+               API.get_user(user_id, "test_token", plug: {Req.Test, stub_name}, retry: false)
+    end
+
+    test "handles missing API token", %{user_id: user_id} do
+      # Add a stub to prevent actual API calls
+      stub_name = :"test_stub_#{System.unique_integer()}"
+
+      Req.Test.stub(stub_name, fn conn ->
+        Plug.Conn.send_resp(conn, 401, Jason.encode!(%{"error" => "Unauthorized"}))
+      end)
+
+      # Temporarily modify the config for this test
+      original_config = Application.get_env(:pii_detector, PIIDetector.Platform.Notion)
+      Application.put_env(:pii_detector, PIIDetector.Platform.Notion, [])
+
+      try do
+        assert {:error, "Missing API token"} =
+                 API.get_user(user_id, nil, plug: {Req.Test, stub_name}, retry: false)
+      after
+        # Restore original config
+        Application.put_env(:pii_detector, PIIDetector.Platform.Notion, original_config)
+      end
+    end
+  end
+
   # Helper functions
   defp has_auth_header(conn, token) do
     Enum.any?(conn.req_headers, fn {key, value} ->

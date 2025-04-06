@@ -187,4 +187,46 @@ defmodule PIIDetector.Platform.Slack.APITest do
       assert result == {:error, :server_error}
     end
   end
+
+  describe "users_lookup_by_email/2" do
+    test "successfully looks up user by email" do
+      expect(APIMock, :post, fn endpoint, token, params ->
+        assert endpoint == "users.lookupByEmail"
+        assert token == "xoxb-test-token"
+        assert params == %{email: "user@example.com"}
+
+        {:ok, %{"ok" => true, "user" => %{"id" => "U12345", "name" => "testuser"}}}
+      end)
+
+      result = API.users_lookup_by_email("user@example.com", "xoxb-test-token")
+      assert result == {:ok, %{"id" => "U12345", "name" => "testuser"}}
+    end
+
+    test "handles user not found error" do
+      expect(APIMock, :post, fn _endpoint, _token, _params ->
+        {:ok, %{"ok" => false, "error" => "users_not_found"}}
+      end)
+
+      result = API.users_lookup_by_email("unknown@example.com", "xoxb-test-token")
+      assert result == {:error, :user_not_found}
+    end
+
+    test "handles other API errors" do
+      expect(APIMock, :post, fn _endpoint, _token, _params ->
+        {:ok, %{"ok" => false, "error" => "invalid_email"}}
+      end)
+
+      result = API.users_lookup_by_email("invalid@example.com", "xoxb-test-token")
+      assert result == {:error, "invalid_email"}
+    end
+
+    test "handles server errors" do
+      expect(APIMock, :post, fn _endpoint, _token, _params ->
+        {:error, "connection_failed"}
+      end)
+
+      result = API.users_lookup_by_email("user@example.com", "xoxb-test-token")
+      assert result == {:error, :server_error}
+    end
+  end
 end
