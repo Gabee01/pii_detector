@@ -156,7 +156,9 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
 
     # Include a warning log if the content seems too short (might be missing title)
     if String.length(content) < 20 do
-      Logger.warning("Content for PII detection is suspiciously short, may be missing page title or content")
+      Logger.warning(
+        "Content for PII detection is suspiciously short, may be missing page title or content"
+      )
     end
 
     Logger.debug("Processing #{length(files)} files for PII detection")
@@ -171,7 +173,9 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
       files: processed_files
     }
 
-    Logger.debug("Sending to detector with input structure: #{inspect(detector_input, pretty: true, limit: 500)}")
+    Logger.debug(
+      "Sending to detector with input structure: #{inspect(detector_input, pretty: true, limit: 500)}"
+    )
 
     # Call detect_pii with the properly structured input and empty opts
     pii_result = detector().detect_pii(detector_input, [])
