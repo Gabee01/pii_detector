@@ -398,9 +398,18 @@ defmodule PIIDetector.Platform.Notion do
     Application.get_env(:pii_detector, :slack_module, Slack)
   end
 
-  defp extract_page_title(%{"properties" => %{"title" => title_data}}) do
-    case title_data do
-      %{"title" => rich_text_list} when is_list(rich_text_list) ->
+  defp extract_page_title(%{"properties" => properties}) do
+    # Try standard title property first
+    standard_title = extract_standard_title(properties)
+    if standard_title, do: standard_title, else: extract_alternative_title(properties)
+  end
+
+  defp extract_page_title(_), do: nil
+
+  # Extract the standard title property
+  defp extract_standard_title(properties) do
+    case properties do
+      %{"title" => %{"title" => rich_text_list}} when is_list(rich_text_list) ->
         Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
 
       _ ->
@@ -408,7 +417,36 @@ defmodule PIIDetector.Platform.Notion do
     end
   end
 
-  defp extract_page_title(_), do: nil
+  # Extract title from alternative property types
+  defp extract_alternative_title(properties) do
+    # Try any property with "title" type
+    title_type_property =
+      properties
+      |> Enum.find(fn {_name, property} -> property["type"] == "title" end)
+
+    case title_type_property do
+      {_prop_name, %{"title" => rich_text_list}} when is_list(rich_text_list) ->
+        Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
+
+      _ ->
+        extract_task_name_title(properties)
+    end
+  end
+
+  # Extract title from "Task name" property specifically
+  defp extract_task_name_title(properties) do
+    task_name_property =
+      properties
+      |> Enum.find(fn {name, _} -> name == "Task name" end)
+
+    case task_name_property do
+      {_, %{"title" => rich_text_list}} when is_list(rich_text_list) ->
+        Enum.map_join(rich_text_list, "", &extract_rich_text_content/1)
+
+      _ ->
+        nil
+    end
+  end
 
   defp extract_text_from_block(%{"type" => type, "has_children" => _has_children} = block) do
     case Map.get(@block_handlers, type) do
