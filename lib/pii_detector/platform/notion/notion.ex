@@ -215,8 +215,17 @@ defmodule PIIDetector.Platform.Notion do
     blocks_with_nested = fetch_nested_blocks(blocks)
 
     # Extract files from blocks
-    files = extract_files_from_blocks(blocks_with_nested)
-    Logger.debug("Found #{length(files)} files in page")
+    block_files = extract_files_from_blocks(blocks_with_nested)
+
+    # Extract files from page properties
+    property_files = extract_files_from_properties(page)
+
+    # Combine files from blocks and properties
+    files = block_files ++ property_files
+
+    Logger.debug(
+      "Found #{length(files)} files in page (#{length(block_files)} from blocks, #{length(property_files)} from properties)"
+    )
 
     # Extract text content
     with {:ok, content} <- extract_content_from_page(page, blocks_with_nested) do
@@ -634,4 +643,23 @@ defmodule PIIDetector.Platform.Notion do
   end
 
   defp extract_files_from_block(_), do: []
+
+  # Extract files from page properties
+  defp extract_files_from_properties(%{"properties" => properties}) do
+    properties
+    |> Enum.flat_map(fn {_property_name, property} ->
+      extract_files_from_property(property)
+    end)
+  end
+
+  defp extract_files_from_properties(_), do: []
+
+  # Extract files from a single property
+  defp extract_files_from_property(%{"type" => "files", "files" => files}) when is_list(files) do
+    Enum.map(files, fn file ->
+      Map.put(file, "source", "property")
+    end)
+  end
+
+  defp extract_files_from_property(_), do: []
 end

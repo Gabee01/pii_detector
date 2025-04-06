@@ -116,6 +116,38 @@ defmodule PIIDetector.Platform.Notion.FileAdapter do
     end
   end
 
+  # Handle file objects directly from page properties
+  def process_file(%{"name" => name, "file" => file_data} = _file_object, opts)
+      when is_map(file_data) and is_binary(name) do
+    Logger.debug(
+      "Processing Notion property file: #{inspect(file_data, pretty: true, limit: 100)}"
+    )
+
+    case extract_url(file_data) do
+      {:ok, url} ->
+        file_service = get_file_service()
+
+        # Add appropriate headers for Notion files
+        headers = build_auth_headers(Keyword.put(opts, :url, url))
+
+        # Get mime type based on file name
+        mime_type = get_mime_type(name)
+
+        adapted_file = %{
+          "url" => url,
+          "mimetype" => mime_type,
+          "name" => name,
+          "headers" => headers
+        }
+
+        file_service.prepare_file(adapted_file, opts)
+
+      {:error, reason} ->
+        Logger.warning("Error processing Notion property file: #{reason}")
+        {:error, reason}
+    end
+  end
+
   def process_file(file_object, _opts) do
     Logger.warning(
       "Unsupported Notion file object format: #{inspect(file_object, pretty: true, limit: 100)}"
