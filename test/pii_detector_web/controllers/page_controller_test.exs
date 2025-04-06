@@ -3,6 +3,6 @@ defmodule PIIDetectorWeb.PageControllerTest do
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Get rid of PII in your data"
+    assert html_response(conn, 200) =~ "Jump PII Detector"
   end
 end
