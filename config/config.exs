@@ -71,7 +71,19 @@ config :logger, :console,
     :categories,
     :response,
     :page_id,
-    :stacktrace
+    :stacktrace,
+    :model,
+    :text_length,
+    :file_type,
+    :error_type,
+    :file_id,
+    :error_kind,
+    :error_reason,
+    :message_ts,
+    :file_count,
+    :has_text,
+    :has_files,
+    :has_attachments
   ]
 
 # Use Jason for JSON parsing in Phoenix
