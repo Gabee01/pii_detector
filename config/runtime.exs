@@ -105,5 +105,10 @@ config :pii_detector, PIIDetector.Platform.Slack.Bot,
   admin_token: System.get_env("SLACK_ADMIN_TOKEN"),
   bot: PIIDetector.Platform.Slack.Bot
 
+# Configure Claude API for PII detection
+if claude_model = System.get_env("CLAUDE_MODEL") do
+  config :pii_detector, :claude, model: claude_model
+end
+
 # Update Fly.io secrets
 # fly secrets set SLACK_APP_TOKEN=xapp-your-token SLACK_BOT_TOKEN=xoxb-your-token SLACK_ADMIN_TOKEN=xoxp-your-admin-token
