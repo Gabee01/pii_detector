@@ -188,7 +188,20 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
   end
 
   # Handle the PII detection result
-  defp handle_pii_result({:pii_detected, true, categories}, page_id, user_id, is_workspace_page) do
+  defp handle_pii_result(
+         {:pii_detected, true, categories},
+         page_id,
+         user_id,
+         true = _is_workspace_page
+       ) do
+    Logger.warning("PII detected in workspace-level Notion page. Can't do anything about it.",
+      page_id: page_id,
+      user_id: user_id,
+      categories: categories
+    )
+  end
+
+  defp handle_pii_result({:pii_detected, true, categories}, page_id, user_id, _is_workspace_page) do
     # Log PII detection
     Logger.warning("PII detected in Notion page",
       page_id: page_id,
@@ -201,7 +214,7 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
     extracted_content = extract_content(page_result, blocks_result)
 
     # Archive the page if appropriate
-    archive_result = handle_page_archival(page_id, is_workspace_page)
+    archive_result = archive_page(page_id)
 
     # Try to notify the author
     page_result
@@ -230,16 +243,6 @@ defmodule PIIDetector.Platform.Notion.PageProcessor do
       {:ok, content, _files} -> content
       _ -> "Content could not be extracted"
     end
-  end
-
-  # Handle page archival based on page type
-  defp handle_page_archival(page_id, true = _is_workspace_page) do
-    Logger.warning("Skipping archiving for workspace-level page #{page_id}")
-    :ok
-  end
-
-  defp handle_page_archival(page_id, false = _is_workspace_page) do
-    archive_page(page_id)
   end
 
   # Extract author email from page data
