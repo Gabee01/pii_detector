@@ -172,7 +172,7 @@ Notion webhooks follow this general structure:
 
 To set up Notion webhooks:
 
-1. Create a Notion integration with the required capabilities
+1. Create a Notion integration with the required capabilities at https://www.notion.so/profile/integrations
 2. Configure the integration to send webhooks to your application's webhook endpoint
 3. Set up verification by responding to the challenge request
 4. Ensure your application's endpoint is publicly accessible

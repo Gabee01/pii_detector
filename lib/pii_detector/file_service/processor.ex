@@ -53,9 +53,19 @@ defmodule PIIDetector.FileService.Processor do
     end
   end
 
+  # Handle maps with atom keys as well (for flexibility)
+  def prepare_file(%{url: _url, headers: _headers} = file, opts) do
+    # Convert to string keys for consistency
+    string_key_file = for {key, val} <- file, into: %{}, do: {to_string(key), val}
+    prepare_file(string_key_file, opts)
+  end
+
   def prepare_file(file, _opts) do
-    Logger.error("Invalid file object: #{inspect(file)}")
-    {:error, "Invalid file object: #{inspect(file)}"}
+    # Log all keys to help debug issues
+    keys = if is_map(file), do: Map.keys(file), else: []
+    Logger.error("Invalid file object with keys: #{inspect(keys)}")
+    Logger.error("Invalid file object: #{inspect(file, limit: 300)}")
+    {:error, "Invalid file object: Missing required url and headers fields"}
   end
 
   # Private helpers for downloading and validating content

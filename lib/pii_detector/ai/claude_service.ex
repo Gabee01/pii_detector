@@ -172,12 +172,12 @@ defmodule PIIDetector.AI.ClaudeService do
       # Fallback default
       Application.get_env(:pii_detector, :claude)[:prod_model] ||
         System.get_env("CLAUDE_PROD_MODEL") ||
-        "claude-3-sonnet-20240229"
+        "claude-3-7-sonnet-20250219"
     else
       # Fallback default
       Application.get_env(:pii_detector, :claude)[:dev_model] ||
         System.get_env("CLAUDE_DEV_MODEL") ||
-        "claude-3-haiku-20240307"
+        "claude-3-5-haiku-20241022"
     end
   end
 

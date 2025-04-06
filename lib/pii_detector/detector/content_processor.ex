@@ -150,10 +150,64 @@ defmodule PIIDetector.Detector.ContentProcessor do
   end
 
   defp process_any_file(file) do
-    Logger.info(
-      "Processing file for multimodal analysis: #{inspect(Map.get(file, "name") || Map.get(file, :name))}"
-    )
+    file_name = Map.get(file, "name") || Map.get(file, :name) || "unnamed"
+    Logger.info("Processing file for multimodal analysis: #{inspect(file_name)}")
 
+    # Log detailed info about the file structure to help debug
+    keys = Map.keys(file)
+    Logger.debug("File keys: #{inspect(keys)}")
+
+    cond do
+      # Case 1: File is already properly formatted for the file service
+      file_ready_for_processing?(file) ->
+        process_with_file_service(file)
+
+      # Case 2: This appears to be a Slack file needing adaptation
+      slack_file?(file) ->
+        adapt_slack_file(file)
+
+      # Case 3: Try direct processing as last resort
+      true ->
+        process_with_file_service(file)
+    end
+  end
+
+  # Check if file is already prepared for file service
+  defp file_ready_for_processing?(file) do
+    Map.has_key?(file, "url") && Map.has_key?(file, "headers")
+  end
+
+  # Check if this is a Slack file
+  defp slack_file?(file) do
+    Enum.any?(["url_private", "url_private_download", "permalink"], &Map.has_key?(file, &1))
+  end
+
+  # Adapt a Slack file for processing
+  defp adapt_slack_file(file) do
+    _adapter =
+      Application.get_env(
+        :pii_detector,
+        :slack_file_adapter,
+        PIIDetector.Platform.Slack.FileAdapter
+      )
+
+    # Get available URL
+    url = file["url_private"] || file["url_private_download"] || file["permalink"]
+
+    # Create pre-adapted file for FileService
+    adapted_file = %{
+      "url" => url,
+      "mimetype" => file["mimetype"],
+      "name" => file["name"] || "unnamed",
+      "headers" => [
+        {"Authorization", "Bearer #{file["token"] || ""}"}
+      ]
+    }
+
+    process_with_file_service(adapted_file)
+  end
+
+  defp process_with_file_service(file) do
     case file_service().prepare_file(file, []) do
       {:ok, processed_file} ->
         # Return processed file data

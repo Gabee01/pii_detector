@@ -23,6 +23,7 @@ defmodule PIIDetector.Platform.Slack.FileAdapter do
 
   def process_file(%{"url_private" => url, "mimetype" => mimetype} = file_object, opts) do
     file_service = get_file_service()
+    token = get_token(file_object, opts)
 
     # Slack provides these fields directly in their API response
     adapted_file = %{
@@ -30,15 +31,29 @@ defmodule PIIDetector.Platform.Slack.FileAdapter do
       "mimetype" => mimetype,
       "name" => file_object["name"] || "unnamed",
       "headers" => [
-        {"Authorization", "Bearer #{get_token(opts)}"}
+        {"Authorization", "Bearer #{token}"}
       ]
     }
 
+    Logger.debug("Adapted Slack file for processing: url=#{url}, name=#{adapted_file["name"]}")
     file_service.prepare_file(adapted_file, opts)
   end
 
+  # Try to find a usable URL - check various Slack URL patterns
+  def process_file(%{"url_private_download" => url, "mimetype" => _mimetype} = file_object, opts) do
+    process_file(%{file_object | "url_private" => url}, opts)
+  end
+
+  def process_file(%{"permalink" => url, "mimetype" => _mimetype} = file_object, opts) do
+    process_file(%{file_object | "url_private" => url}, opts)
+  end
+
+  def process_file(%{"thumb_1024" => url, "mimetype" => _mimetype} = file_object, opts) do
+    process_file(%{file_object | "url_private" => url}, opts)
+  end
+
   def process_file(file_object, _opts) do
-    Logger.error("Invalid Slack file object: #{inspect(file_object)}")
+    Logger.error("Invalid Slack file object: #{inspect(file_object, limit: 100)}")
     {:error, "Invalid Slack file object format"}
   end
 
@@ -48,8 +63,11 @@ defmodule PIIDetector.Platform.Slack.FileAdapter do
     Application.get_env(:pii_detector, :file_service, PIIDetector.FileService.Processor)
   end
 
-  defp get_token(opts) do
-    opts[:token] ||
+  defp get_token(file_object, opts) do
+    # First try to get token from the file object itself (added by SlackMessageWorker)
+    # Then from options, then from env var, and finally fallback to a default
+    file_object["token"] ||
+      opts[:token] ||
       System.get_env("SLACK_BOT_TOKEN") ||
       "xoxp-test-token-for-slack"
   end
